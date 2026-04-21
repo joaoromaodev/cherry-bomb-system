@@ -750,4 +750,12 @@ window.toggleDropdown           = toggleDropdown
 document.getElementById('today-date').textContent =
   new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-navigate('dashboard')
+// Esconde splash após dashboard carregar
+async function init() {
+  await navigate('dashboard')
+  setTimeout(() => {
+    document.getElementById('splash').classList.add('hide')
+  }, 600)
+}
+
+init()
