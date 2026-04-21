@@ -131,22 +131,7 @@ async function loadDashboard() {
   document.getElementById('stat-lucro').textContent     = brl(lucro)
   document.getElementById('stat-caixa').textContent     = brl(saldoEmCaixa)
 
-  const recentes = [...pedidos]
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .slice(0, 6)
-
-  document.getElementById('recentes-tbody').innerHTML =
-    recentes.length
-      ? recentes.map(p => `
-          <tr>
-            <td><span class="code">${p.codigo || '—'}</span></td>
-            <td>${p.cliente_nome || '—'}</td>
-            <td>${p.produto || '—'}</td>
-            <td><strong>${brl(p.total_final)}</strong></td>
-            <td>${badgePedido(p.status_pedido)}</td>
-            <td>${badgePagto(p.status_pagamento)}</td>
-          </tr>`).join('')
-      : '<tr><td colspan="6" class="empty">Nenhum pedido ainda</td></tr>'
+  // tabela de recentes removida no redesign — bloco limpo
 }
 
 // ── Pedidos — listagem ────────────────────────────────────────────
