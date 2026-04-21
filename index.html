@@ -272,7 +272,58 @@
     </form>
   </div>
 </div>
+<div id="modal-detalhes" class="modal" onclick="fecharSeBackdrop(event,'modal-detalhes')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Detalhes do Pedido <span id="det-codigo" class="code"></span></h2>
+      <button class="modal-close" onclick="fecharModal('modal-detalhes')">×</button>
+    </div>
+    
+    <div style="margin-bottom: 20px; font-size: 14px;">
+      <p style="margin-bottom: 8px;"><strong>Cliente:</strong> <span id="det-cliente"></span></p>
+      <p style="margin-bottom: 8px;"><strong>Produto:</strong> <span id="det-produto"></span></p>
+      
+      <p style="margin-bottom: 4px; color: var(--pink-dark); font-weight: 600;">O que produzir:</p>
+      <div id="det-variacoes" style="background: var(--pink-50); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
+        </div>
+      
+      <p><strong>Observações:</strong> <span id="det-obs" style="color: var(--muted);"></span></p>
+    </div>
 
+    <form id="form-status" onsubmit="salvarNovoStatus(event)">
+      <input type="hidden" id="det-id">
+      
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Status da Produção</label>
+          <select id="det-status-pedido">
+            <option>Aguardando confirmação</option>
+            <option>50% pago — em produção</option>
+            <option>Em produção</option>
+            <option>Pronto para envio</option>
+            <option>Enviado</option>
+            <option>Entregue</option>
+            <option>Cancelado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status do Pagamento</label>
+          <select id="det-status-pagamento">
+            <option>Pendente</option>
+            <option>50% pago</option>
+            <option>Pago integral</option>
+            <option>Reembolsado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="fecharModal('modal-detalhes')">Fechar</button>
+        <button type="submit" class="btn-primary">Atualizar Status</button>
+      </div>
+    </form>
+  </div>
+</div>
 <!-- ── Toast ─────────────────────────────────────────────────────── -->
 <div id="toast" class="toast"></div>
 

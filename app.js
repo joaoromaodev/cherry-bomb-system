@@ -20,7 +20,10 @@ function brl(val) {
 
 function fmtData(d) {
   if (!d) return '—'
-  return new Date(d + 'T12:00:00').toLocaleDateString('pt-BR')
+  // Lê a data que vem do banco e converte para o fuso horário local
+  const data = new Date(d);
+  if (isNaN(data.getTime())) return '—'; 
+  return data.toLocaleDateString('pt-BR');
 }
 
 function calcPreco(qtd) {
@@ -113,16 +116,25 @@ async function loadDashboard() {
       : '<tr><td colspan="6" class="empty">Nenhum pedido ainda</td></tr>'
 }
 
+
+
 // ── Pedidos — listagem ────────────────────────────────────────────
+let pedidosCarregados = []; // Guarda os pedidos na memória
+// ── Pedidos — listagem ────────────────────────────────────────────
+let pedidosCarregados = []; // Guarda os pedidos na memória
+
 async function loadPedidos(filtroStatus = '') {
   let query = sb.schema(S).from('pedidos')
     .select('*, itens_pedido(*)')
     .order('created_at', { ascending: false })
 
   if (filtroStatus) query = query.eq('status_pedido', filtroStatus)
-
+  
   const { data, error } = await query
   if (error) { toast('Erro ao carregar pedidos: ' + error.message, 'error'); return }
+  
+  // A variável precisa ser preenchida DEPOIS que a busca (query) termina
+  pedidosCarregados = data; 
 
   document.getElementById('pedidos-tbody').innerHTML =
     data.length
@@ -142,9 +154,8 @@ async function loadPedidos(filtroStatus = '') {
               <td>${badgePedido(p.status_pedido)}</td>
               <td>${badgePagto(p.status_pagamento)}</td>
               <td>
-                <button class="btn-icon" title="Alterar status"
-                  onclick="abrirAtualizarStatus('${p.id}','${p.status_pedido}','${p.status_pagamento}')">
-                  ✏️
+                <button class="btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="abrirDetalhesPedido('${p.id}')">
+                  Ver detalhes
                 </button>
               </td>
             </tr>`
@@ -153,59 +164,52 @@ async function loadPedidos(filtroStatus = '') {
 }
 
 // ── Pedido — atualizar status (edição rápida) ─────────────────────
-async function abrirAtualizarStatus(id, statusAtual, pagtoAtual) {
-  const novoStatus = prompt(
-    `Status do pedido (atual: ${statusAtual})\n\n` +
-    `Opções:\n` +
-    `1 - Aguardando confirmação\n` +
-    `2 - 50% pago — em produção\n` +
-    `3 - Em produção\n` +
-    `4 - Pronto para envio\n` +
-    `5 - Enviado\n` +
-    `6 - Entregue\n` +
-    `7 - Cancelado\n\n` +
-    `Digite o número:`
-  )
+// ── Abrir modal de detalhes ───────────────────────────────────────
+function abrirDetalhesPedido(id) {
+  // Procura o pedido na memória
+  const p = pedidosCarregados.find(x => x.id === id);
+  if(!p) return;
 
-  const statusMap = {
-    '1': 'Aguardando confirmação',
-    '2': '50% pago — em produção',
-    '3': 'Em produção',
-    '4': 'Pronto para envio',
-    '5': 'Enviado',
-    '6': 'Entregue',
-    '7': 'Cancelado',
-  }
+  // Preenche os textos no HTML
+  document.getElementById('det-id').value = p.id;
+  document.getElementById('det-codigo').textContent = p.codigo || '—';
+  document.getElementById('det-cliente').textContent = p.cliente_nome || '—';
+  document.getElementById('det-produto').textContent = p.produto || '—';
+  document.getElementById('det-obs').textContent = p.observacao || 'Nenhuma observação.';
 
-  const novoPagto = prompt(
-    `Status do pagamento (atual: ${pagtoAtual})\n\n` +
-    `Opções:\n` +
-    `1 - Pendente\n` +
-    `2 - 50% pago\n` +
-    `3 - Pago integral\n` +
-    `4 - Reembolsado\n\n` +
-    `Digite o número:`
-  )
+  // Monta a lista de cores/variações
+  const varStr = (p.itens_pedido || [])
+    .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
+    .join('<br>');
+  document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.';
 
-  const pagtoMap = {
-    '1': 'Pendente',
-    '2': '50% pago',
-    '3': 'Pago integral',
-    '4': 'Reembolsado',
-  }
+  // Seleciona o status atual nos campos
+  document.getElementById('det-status-pedido').value = p.status_pedido;
+  document.getElementById('det-status-pagamento').value = p.status_pagamento;
 
-  const updates = {}
-  if (novoStatus && statusMap[novoStatus]) updates.status_pedido    = statusMap[novoStatus]
-  if (novoPagto  && pagtoMap[novoPagto])   updates.status_pagamento = pagtoMap[novoPagto]
+  // Abre a janela
+  document.getElementById('modal-detalhes').classList.add('open');
+}
 
-  if (!Object.keys(updates).length) return
+// ── Salvar o novo status ──────────────────────────────────────────
+async function salvarNovoStatus(e) {
+  e.preventDefault();
+  
+  const id = document.getElementById('det-id').value;
+  const status_pedido = document.getElementById('det-status-pedido').value;
+  const status_pagamento = document.getElementById('det-status-pagamento').value;
 
-  const { error } = await sb.schema(S).from('pedidos').update(updates).eq('id', id)
-  if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
+  const { error } = await sb.schema(S).from('pedidos').update({
+    status_pedido: status_pedido,
+    status_pagamento: status_pagamento
+  }).eq('id', id);
 
-  toast('Status atualizado!')
-  loadPedidos()
-  loadDashboard()
+  if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return; }
+
+  toast('Status atualizado com sucesso!');
+  fecharModal('modal-detalhes');
+  loadPedidos(); // Recarrega a tabela
+  loadDashboard(); // Atualiza os números do início
 }
 
 // ── Modal Novo Pedido ─────────────────────────────────────────────
@@ -389,7 +393,8 @@ window.recalcPedido          = recalcPedido
 window.salvarPedido          = salvarPedido
 window.salvarCliente         = salvarCliente
 window.loadPedidos           = loadPedidos
-window.abrirAtualizarStatus  = abrirAtualizarStatus
+window.abrirDetalhesPedido   = abrirDetalhesPedido // <--- Função NOVA aqui
+window.salvarNovoStatus      = salvarNovoStatus    // <--- Função NOVA aqui
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =
