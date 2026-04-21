@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cherry Bomb</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="brand">
+    <span class="brand-dot"></span>
+    <span class="brand-name">Cherry Bomb</span>
+  </div>
+  <nav class="nav">
+    <button class="nav-btn active" data-page="dashboard">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-btn" data-page="pedidos">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      Pedidos
+    </button>
+    <button class="nav-btn" data-page="clientes">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      Clientes
+    </button>
+    <button class="nav-btn disabled" disabled>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      Compras
+      <span class="pill-soon">em breve</span>
+    </button>
+  </nav>
+</aside>
+
+<!-- ── Conteúdo principal ──────────────────────────────────────────── -->
+<main class="main">
+
+  <!-- DASHBOARD -->
+  <section id="page-dashboard" class="page active">
+    <div class="page-header">
+      <div>
+        <h1>Dashboard</h1>
+        <span class="page-sub" id="today-date"></span>
+      </div>
+      <button class="btn-primary" onclick="abrirModalPedido()">+ Novo pedido</button>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Total de pedidos</span>
+        <span class="stat-value" id="stat-total">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Faturamento total</span>
+        <span class="stat-value accent" id="stat-fat">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Em produção</span>
+        <span class="stat-value" id="stat-prod">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Aguardando pagamento</span>
+        <span class="stat-value warn" id="stat-pend">—</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>Pedidos recentes</h2>
+        <button class="btn-link" onclick="navigate('pedidos')">Ver todos →</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th><th>Cliente</th><th>Produto</th>
+              <th>Total</th><th>Pedido</th><th>Pagamento</th>
+            </tr>
+          </thead>
+          <tbody id="recentes-tbody">
+            <tr><td colspan="6" class="empty">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- PEDIDOS -->
+  <section id="page-pedidos" class="page">
+    <div class="page-header">
+      <h1>Pedidos</h1>
+      <button class="btn-primary" onclick="abrirModalPedido()">+ Novo pedido</button>
+    </div>
+
+    <div class="filter-bar">
+      <select id="filtro-status" onchange="loadPedidos(this.value)">
+        <option value="">Todos os status</option>
+        <option>Aguardando confirmação</option>
+        <option>50% pago — em produção</option>
+        <option>Em produção</option>
+        <option>Pronto para envio</option>
+        <option>Enviado</option>
+        <option>Entregue</option>
+        <option>Cancelado</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table class="tbl-pedidos">
+          <thead>
+            <tr>
+              <th>Código</th><th>Data</th><th>Cliente</th><th>Produto</th>
+              <th>Variações</th><th>Qtd</th><th>Preço</th><th>Total</th>
+              <th>Pedido</th><th>Pagamento</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="pedidos-tbody">
+            <tr><td colspan="11" class="empty">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- CLIENTES -->
+  <section id="page-clientes" class="page">
+    <div class="page-header">
+      <h1>Clientes</h1>
+      <button class="btn-primary" onclick="abrirModalCliente()">+ Novo cliente</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th><th>Nome</th><th>Contato</th><th>CEP</th><th>Cidade</th><th>Cadastro</th>
+            </tr>
+          </thead>
+          <tbody id="clientes-tbody">
+            <tr><td colspan="6" class="empty">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ── Modal: Novo Pedido ─────────────────────────────────────────── -->
+<div id="modal-pedido" class="modal" onclick="fecharSeBackdrop(event,'modal-pedido')">
+  <div class="modal-box large">
+    <div class="modal-header">
+      <h2>Novo pedido</h2>
+      <button class="modal-close" onclick="fecharModal('modal-pedido')">×</button>
+    </div>
+    <form id="form-pedido" onsubmit="salvarPedido(event)">
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Cliente *</label>
+          <select id="pedido-cliente" required>
+            <option value="">Selecione...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Produto</label>
+          <input type="text" id="pedido-produto" placeholder="ex: Scrunchie veludo">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Variações e quantidades</label>
+        <div id="variacao-list"></div>
+        <button type="button" class="btn-add-var" onclick="addVariacao()">+ adicionar variação</button>
+      </div>
+
+      <div class="calc-box">
+        <div class="calc-row"><span>Quantidade total</span><strong id="calc-qtd">—</strong></div>
+        <div class="calc-row"><span>Preço por unidade</span><strong id="calc-preco">—</strong></div>
+        <div class="calc-row"><span>Subtotal</span><strong id="calc-subtotal">—</strong></div>
+        <div class="calc-divider"></div>
+        <div class="calc-row total"><span>Total final</span><strong id="calc-total">—</strong></div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Desconto (−) ou acréscimo (+) em R$</label>
+          <input type="number" id="pedido-desconto" placeholder="ex: -10.00" step="0.01" oninput="recalcPedido()">
+        </div>
+        <div class="form-group">
+          <label>Frete (R$)</label>
+          <input type="number" id="pedido-frete" placeholder="ex: 15.00" min="0" step="0.01" oninput="recalcPedido()">
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Status do pedido</label>
+          <select id="pedido-status">
+            <option>Aguardando confirmação</option>
+            <option>50% pago — em produção</option>
+            <option>Em produção</option>
+            <option>Pronto para envio</option>
+            <option>Enviado</option>
+            <option>Entregue</option>
+            <option>Cancelado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Status do pagamento</label>
+          <select id="pedido-status-pgto">
+            <option>Pendente</option>
+            <option>50% pago</option>
+            <option>Pago integral</option>
+            <option>Reembolsado</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Observação</label>
+        <textarea id="pedido-obs" rows="2" placeholder="ex: embalagem para presente, prazo até dia 20"></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="fecharModal('modal-pedido')">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar pedido</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: Novo Cliente ────────────────────────────────────────── -->
+<div id="modal-cliente" class="modal" onclick="fecharSeBackdrop(event,'modal-cliente')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2>Novo cliente</h2>
+      <button class="modal-close" onclick="fecharModal('modal-cliente')">×</button>
+    </div>
+    <form id="form-cliente" onsubmit="salvarCliente(event)">
+      <div class="form-group">
+        <label>Nome *</label>
+        <input type="text" id="cli-nome" placeholder="Nome completo" required>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Contato (WhatsApp)</label>
+          <input type="text" id="cli-contato" placeholder="(85) 9 9999-9999">
+        </div>
+        <div class="form-group">
+          <label>CEP</label>
+          <input type="text" id="cli-cep" placeholder="60000-000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Cidade / Estado</label>
+        <input type="text" id="cli-cidade" placeholder="Fortaleza, CE">
+      </div>
+      <div class="form-group">
+        <label>Observação</label>
+        <textarea id="cli-obs" rows="2" placeholder="Qualquer info relevante"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="fecharModal('modal-cliente')">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar cliente</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────────────── -->
+<div id="toast" class="toast"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
