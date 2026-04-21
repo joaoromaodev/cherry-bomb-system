@@ -652,15 +652,20 @@ function toggleSidebar() {
 
 // ── Dropdown ──────────────────────────────────────────────────────
 function toggleDropdown(id) {
-  const target = document.getElementById(id)
-  const isOpen = target.querySelector('.dropdown-content').classList.contains('open')
+  const container = document.getElementById(id)
+  const trigger   = container.querySelector('.dropdown-trigger')
+  const content   = container.querySelector('.dropdown-content')
+  const isOpen    = content.classList.contains('open')
 
   // fecha todos antes de abrir o clicado
   document.querySelectorAll('.dropdown-content.open')
     .forEach(el => el.classList.remove('open'))
 
   if (!isOpen) {
-    target.querySelector('.dropdown-content').classList.add('open')
+    const rect = trigger.getBoundingClientRect()
+    content.style.top   = `${rect.bottom + 4}px`
+    content.style.right = `${window.innerWidth - rect.right}px`
+    content.classList.add('open')
   }
 }
 

@@ -409,15 +409,13 @@ tr:hover td { background: #fdf9fb; }
 
 .dropdown-content {
   display: none;
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
+  position: fixed;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   box-shadow: 0 8px 24px rgba(19, 10, 16, 0.12);
   min-width: 160px;
-  z-index: 50;
+  z-index: 200;
   overflow: hidden;
   padding: 4px 0;
 }
