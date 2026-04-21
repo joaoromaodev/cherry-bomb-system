@@ -64,6 +64,9 @@ function navigate(pagina) {
   document.querySelectorAll('.nav-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.page === pagina)
   })
+  document.querySelectorAll('.bottom-nav-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.page === pagina)
+  })
   document.querySelectorAll('.page').forEach(p => {
     p.classList.toggle('active', p.id === `page-${pagina}`)
   })
