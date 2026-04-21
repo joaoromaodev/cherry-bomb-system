@@ -905,6 +905,13 @@ tr:hover td      { background: var(--cherry-50); transition: background 0.1s; }
 
 .dropdown-item:hover { background: var(--cherry-50); }
 
+.dropdown-item svg {
+  flex-shrink: 0;
+  opacity: 0.65;
+}
+
+.dropdown-item-danger svg { opacity: 0.8; }
+
 .dropdown-item-danger       { color: var(--danger-text); }
 .dropdown-item-danger:hover { background: var(--danger-bg); }
 

@@ -170,9 +170,18 @@ async function loadPedidos(filtroStatus = '') {
                 <div class="dropdown" id="dd-ped-${p.id}">
                   <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-ped-${p.id}')">⋮</button>
                   <div class="dropdown-content">
-                    <button class="dropdown-item" onclick="abrirDetalhesPedido('${p.id}')">👁️ Ver detalhes</button>
-                    <button class="dropdown-item" onclick="abrirModalEditarPedido('${p.id}')">✏️ Editar</button>
-                    <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirPedido('${p.id}')">🗑️ Excluir</button>
+                    <button class="dropdown-item" onclick="abrirDetalhesPedido('${p.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Ver detalhes
+                  </button>
+                  <button class="dropdown-item" onclick="abrirModalEditarPedido('${p.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Editar
+                  </button>
+                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirPedido('${p.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                    Excluir
+                  </button>
                   </div>
                 </div>
               </td>
@@ -450,8 +459,14 @@ async function loadClientes() {
               <div class="dropdown" id="dd-cli-${c.id}">
                 <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-cli-${c.id}')">⋮</button>
                 <div class="dropdown-content">
-                  <button class="dropdown-item" onclick="abrirModalEditarCliente('${c.id}')">✏️ Editar</button>
-                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCliente('${c.id}')">🗑️ Excluir</button>
+                  <button class="dropdown-item" onclick="abrirModalEditarCliente('${c.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Editar
+                  </button>
+                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCliente('${c.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                    Excluir
+                  </button>
                 </div>
               </div>
             </td>
@@ -567,8 +582,14 @@ async function loadCompras() {
               <div class="dropdown" id="dd-comp-${c.id}">
                 <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-comp-${c.id}')">⋮</button>
                 <div class="dropdown-content">
-                  <button class="dropdown-item" onclick="abrirModalEditarCompra('${c.id}')">✏️ Editar</button>
-                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCompra('${c.id}')">🗑️ Excluir</button>
+                  <button class="dropdown-item" onclick="abrirModalEditarCompra('${c.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Editar
+                  </button>
+                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCompra('${c.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                    Excluir
+                  </button>
                 </div>
               </div>
             </td>
