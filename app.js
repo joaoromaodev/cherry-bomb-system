@@ -169,13 +169,13 @@ async function loadPedidos(filtroStatus = '') {
           return `
             <tr>
               <td><span class="code">${p.codigo || '—'}</span></td>
-              <td>${fmtData(p.data_pedido)}</td>
-              <td><strong>${p.cliente_nome || '—'}</strong></td>
-              <td>${p.produto || '—'}</td>
+              <td class="td-secondary">${fmtData(p.data_pedido)}</td>
+              <td class="td-cliente">${p.cliente_nome || '—'}</td>
+              <td class="td-secondary">${p.produto || '—'}</td>
               <td class="vars">${varStr || '—'}</td>
-              <td><strong>${p.qtd_total || 0} un</strong></td>
-              <td>${p.preco_unitario ? brl(p.preco_unitario) + '/un' : '—'}</td>
-              <td><strong>${brl(p.total_final)}</strong></td>
+              <td class="td-secondary"><strong>${p.qtd_total || 0}</strong> un</td>
+              <td class="td-secondary">${p.preco_unitario ? brl(p.preco_unitario) + '/un' : '—'}</td>
+              <td class="td-total">${brl(p.total_final)}</td>
               <td>${badgePedido(p.status_pedido)}</td>
               <td>${badgePagto(p.status_pagamento)}</td>
               <td>
@@ -701,7 +701,8 @@ document.addEventListener('click', function (e) {
 
 // ── Modais ────────────────────────────────────────────────────────
 function fecharModal(id) {
-  document.getElementById(id).classList.remove('open')
+  const el = document.getElementById(id)
+  el.classList.remove('open')
 }
 
 function fecharSeBackdrop(e, id) {
