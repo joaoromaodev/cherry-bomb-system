@@ -60,7 +60,7 @@ Este documento detalha as próximas implementações técnicas para transformar 
 - **Segurança:** Todas as funções de exclusão devem solicitar confirmação do usuário para evitar perda acidental de dados.
 """
 
-file_path = 'TASKS_ATUALIZACAO.md'
+file_path = 'tasks.md'
 
 with open(file_path, 'w', encoding='utf-8') as f:
     f.write(tasks_content)
