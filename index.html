@@ -9,27 +9,34 @@
 <body>
 
 <!-- ── Sidebar ─────────────────────────────────────────────────────── -->
-<aside class="sidebar">
+<aside class="sidebar" id="sidebar">
   <div class="brand">
     <span class="brand-dot"></span>
     <span class="brand-name">Cherry Bomb</span>
   </div>
+  <button class="btn-hamburger" onclick="toggleSidebar()" title="Recolher menu">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="3" y1="6"  x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
   <nav class="nav">
     <button class="nav-btn active" data-page="dashboard">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-      Dashboard
+      <span>Dashboard</span>
     </button>
     <button class="nav-btn" data-page="pedidos">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-      Pedidos
+      <span>Pedidos</span>
     </button>
     <button class="nav-btn" data-page="clientes">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Clientes
+      <span>Clientes</span>
     </button>
     <button class="nav-btn" data-page="compras">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-      Compras
+      <span>Compras</span>
     </button>
   </nav>
 </aside>
@@ -125,7 +132,7 @@
         <table>
           <thead>
             <tr>
-              <th>Código</th><th>Nome</th><th>Contato</th><th>CEP</th><th>Cidade</th><th>Cadastro</th>
+              <th>Código</th><th>Nome</th><th>Contato</th><th>CEP</th><th>Cidade</th><th>Cadastro</th><th>Ações</th>
             </tr>
           </thead>
           <tbody id="clientes-tbody">
@@ -139,7 +146,7 @@
     <div class="page-header">
       <div>
         <h1>Compras e Custos</h1>
-        <span class="page-sub">Controle de gastos com material (tecidos, etiquetas, frete, etc)</span>
+        <span class="page-sub">Controle de gastos</span>
       </div>
       <button class="btn-primary" onclick="abrirModalCompra()">+ Nova compra</button>
     </div>
@@ -169,6 +176,7 @@
       <button class="modal-close" onclick="fecharModal('modal-pedido')">×</button>
     </div>
     <form id="form-pedido" onsubmit="salvarPedido(event)">
+      <input type="hidden" id="pedido-id">
 
       <div class="form-grid-2">
         <div class="form-group">
@@ -249,10 +257,11 @@
 <div id="modal-cliente" class="modal" onclick="fecharSeBackdrop(event,'modal-cliente')">
   <div class="modal-box">
     <div class="modal-header">
-      <h2>Novo cliente</h2>
+      <h2 id="modal-cliente-titulo">Novo cliente</h2>
       <button class="modal-close" onclick="fecharModal('modal-cliente')">×</button>
     </div>
     <form id="form-cliente" onsubmit="salvarCliente(event)">
+      <input type="hidden" id="cli-id">
       <div class="form-group">
         <label>Nome *</label>
         <input type="text" id="cli-nome" placeholder="Nome completo" required>
@@ -390,6 +399,41 @@
     </div>
   </div>
 </div>
+<!-- ── Modal: Excluir Cliente ───────────────────────────────────── -->
+<div id="modal-excluir-cliente" class="modal" onclick="fecharSeBackdrop(event,'modal-excluir-cliente')">
+  <div class="modal-box" style="max-width: 400px; text-align: center;">
+    <h2 style="color: #991b1b; margin-bottom: 12px;">Excluir Cliente?</h2>
+    <p style="color: var(--muted); margin-bottom: 24px; font-size: 14px;">
+      Tem certeza que deseja excluir o cliente
+      <strong><span id="exc-cli-nome"></span></strong>?<br>
+      Essa ação só é permitida se ele não tiver pedidos vinculados.
+    </p>
+    <input type="hidden" id="exc-cli-id">
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button type="button" class="btn-secondary" onclick="fecharModal('modal-excluir-cliente')">Cancelar</button>
+      <button type="button" class="btn-primary" style="background: #991b1b;" onclick="confirmarExclusaoCliente()">Sim, Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Excluir Pedido ─────────────────────────────────────── -->
+<div id="modal-excluir-pedido" class="modal" onclick="fecharSeBackdrop(event,'modal-excluir-pedido')">
+  <div class="modal-box" style="max-width: 400px; text-align: center;">
+    <h2 style="color: #991b1b; margin-bottom: 12px;">Excluir Pedido?</h2>
+    <p style="color: var(--muted); margin-bottom: 24px; font-size: 14px;">
+      Tem certeza que deseja excluir o pedido
+      <strong><span id="exc-ped-codigo"></span></strong>
+      de <strong><span id="exc-ped-cliente"></span></strong>?<br>
+      Essa ação não pode ser desfeita.
+    </p>
+    <input type="hidden" id="exc-ped-id">
+    <div style="display: flex; gap: 12px; justify-content: center;">
+      <button type="button" class="btn-secondary" onclick="fecharModal('modal-excluir-pedido')">Cancelar</button>
+      <button type="button" class="btn-primary" style="background: #991b1b;" onclick="confirmarExclusaoPedido()">Sim, Excluir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Toast ─────────────────────────────────────────────────────── -->
 <div id="toast" class="toast"></div>
 

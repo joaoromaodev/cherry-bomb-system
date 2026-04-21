@@ -159,9 +159,14 @@ async function loadPedidos(filtroStatus = '') {
               <td>${badgePedido(p.status_pedido)}</td>
               <td>${badgePagto(p.status_pagamento)}</td>
               <td>
-                <button class="btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="abrirDetalhesPedido('${p.id}')">
-                  Ver detalhes
-                </button>
+                <div class="dropdown" id="dd-ped-${p.id}">
+                  <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-ped-${p.id}')">⋮</button>
+                  <div class="dropdown-content">
+                    <button class="dropdown-item" onclick="abrirDetalhesPedido('${p.id}')">👁️ Ver detalhes</button>
+                    <button class="dropdown-item" onclick="abrirModalEditarPedido('${p.id}')">✏️ Editar</button>
+                    <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirPedido('${p.id}')">🗑️ Excluir</button>
+                  </div>
+                </div>
               </td>
             </tr>`
         }).join('')
@@ -222,12 +227,61 @@ async function abrirModalPedido() {
     ).join('')
 
   document.getElementById('form-pedido').reset()
+  document.getElementById('pedido-id').value = ''
+  document.querySelector('#modal-pedido .modal-header h2').textContent = 'Novo pedido'
   document.getElementById('variacao-list').innerHTML = ''
 
   addVariacao()
   addVariacao()
   recalcPedido()
 
+  document.getElementById('modal-pedido').classList.add('open')
+}
+
+async function abrirModalEditarPedido(id) {
+  const p = pedidosCarregados.find(x => x.id === id)
+  if (!p) { toast('Pedido não encontrado', 'error'); return }
+
+  const { data: clientes } = await sb.schema(S).from('clientes').select('id, nome').order('nome')
+  const sel = document.getElementById('pedido-cliente')
+  sel.innerHTML =
+    '<option value="">Selecione o cliente...</option>' +
+    (clientes || []).map(c =>
+      `<option value="${c.id}" data-nome="${c.nome}">${c.nome}</option>`
+    ).join('')
+
+  document.getElementById('pedido-id').value         = p.id
+  sel.value                                           = p.cliente_id || ''
+  document.getElementById('pedido-produto').value     = p.produto || ''
+  document.getElementById('pedido-desconto').value    = p.desconto_acrescimo || ''
+  document.getElementById('pedido-frete').value       = p.frete || ''
+  document.getElementById('pedido-status').value      = p.status_pedido || 'Aguardando confirmação'
+  document.getElementById('pedido-status-pgto').value = p.status_pagamento || 'Pendente'
+  document.getElementById('pedido-obs').value         = p.observacao || ''
+
+  const list = document.getElementById('variacao-list')
+  list.innerHTML = ''
+  const itens = p.itens_pedido || []
+  if (itens.length > 0) {
+    itens.forEach(item => {
+      const div = document.createElement('div')
+      div.className = 'var-row'
+      div.innerHTML = `
+        <input type="text" placeholder="Variação" class="var-nome"
+          value="${item.variacao || ''}" oninput="recalcPedido()">
+        <input type="number" placeholder="Qtd" min="0" step="1" class="var-qtd"
+          value="${item.quantidade || 0}" oninput="recalcPedido()">
+        <button type="button" class="btn-rm-var"
+          onclick="this.parentElement.remove(); recalcPedido()">×</button>
+      `
+      list.appendChild(div)
+    })
+  } else {
+    addVariacao()
+  }
+
+  recalcPedido()
+  document.querySelector('#modal-pedido .modal-header h2').textContent = `Editar Pedido ${p.codigo || ''}`
   document.getElementById('modal-pedido').classList.add('open')
 }
 
@@ -271,6 +325,7 @@ function recalcPedido() {
 async function salvarPedido(e) {
   e.preventDefault()
 
+  const editId      = document.getElementById('pedido-id').value
   const sel         = document.getElementById('pedido-cliente')
   const clienteId   = sel.value
   const clienteNome = sel.selectedOptions[0]?.dataset.nome || ''
@@ -285,14 +340,14 @@ async function salvarPedido(e) {
   const qtdTotal = variacoes.reduce((s, v) => s + v.quantidade, 0)
   const preco    = calcPreco(qtdTotal)
 
-  if (!clienteId)      { toast('Selecione um cliente', 'error'); return }
-  if (!variacoes.length){ toast('Adicione pelo menos uma variação com quantidade', 'error'); return }
-  if (qtdTotal < 10)   { toast('Pedido mínimo: 10 unidades', 'error'); return }
+  if (!clienteId)       { toast('Selecione um cliente', 'error'); return }
+  if (!variacoes.length) { toast('Adicione pelo menos uma variação com quantidade', 'error'); return }
+  if (qtdTotal < 10)    { toast('Pedido mínimo: 10 unidades', 'error'); return }
 
-  const desconto  = parseFloat(document.getElementById('pedido-desconto').value) || 0
-  const frete     = parseFloat(document.getElementById('pedido-frete').value)    || 0
-  const subtotal  = preco * qtdTotal
-  const total     = subtotal + desconto + frete
+  const desconto = parseFloat(document.getElementById('pedido-desconto').value) || 0
+  const frete    = parseFloat(document.getElementById('pedido-frete').value)    || 0
+  const subtotal = preco * qtdTotal
+  const total    = subtotal + desconto + frete
 
   const pedidoPayload = {
     cliente_id:          clienteId,
@@ -307,28 +362,71 @@ async function salvarPedido(e) {
     status_pedido:       document.getElementById('pedido-status').value,
     status_pagamento:    document.getElementById('pedido-status-pgto').value,
     observacao:          document.getElementById('pedido-obs').value.trim(),
-    data_pedido:         new Date().toISOString().split('T')[0],
   }
 
-  const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
+  if (editId) {
+    // ── UPDATE ──────────────────────────────────────────────────
+    const { error } = await sb.schema(S).from('pedidos').update(pedidoPayload).eq('id', editId)
+    if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
-  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+    await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
+    if (variacoes.length) {
+      const itens = variacoes.map(v => ({ ...v, pedido_id: editId }))
+      await sb.schema(S).from('itens_pedido').insert(itens)
+    }
+    toast('Pedido atualizado com sucesso!')
 
-  if (variacoes.length) {
-    const itens = variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
-    await sb.schema(S).from('itens_pedido').insert(itens)
+  } else {
+    // ── INSERT ──────────────────────────────────────────────────
+    pedidoPayload.data_pedido = new Date().toISOString().split('T')[0]
+
+    const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
+    if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+
+    if (variacoes.length) {
+      const itens = variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
+      await sb.schema(S).from('itens_pedido').insert(itens)
+    }
+    toast(`Pedido ${pedido.codigo} criado!`)
   }
 
-  toast(`Pedido ${pedido.codigo} criado!`)
   fecharModal('modal-pedido')
   loadPedidos()
   loadDashboard()
 }
 
+// ── Pedido — exclusão ─────────────────────────────────────────────
+function abrirModalExcluirPedido(id) {
+  const p = pedidosCarregados.find(x => x.id === id)
+  if (!p) return
+
+  document.getElementById('exc-ped-id').value          = id
+  document.getElementById('exc-ped-codigo').textContent = p.codigo || '—'
+  document.getElementById('exc-ped-cliente').textContent= p.cliente_nome || '—'
+  document.getElementById('modal-excluir-pedido').classList.add('open')
+}
+
+async function confirmarExclusaoPedido() {
+  const id = document.getElementById('exc-ped-id').value
+  if (!id) return
+
+  const { error } = await sb.schema(S).from('pedidos').delete().eq('id', id)
+  if (error) { toast('Erro ao excluir: ' + error.message, 'error'); return }
+
+  toast('Pedido excluído!')
+  fecharModal('modal-excluir-pedido')
+  loadPedidos()
+  loadDashboard()
+}
+
 // ── Clientes ──────────────────────────────────────────────────────
+let clientesCarregados = []
+
 async function loadClientes() {
   const { data, error } = await sb.schema(S).from('clientes').select('*').order('nome')
   if (error) { toast('Erro ao carregar clientes: ' + error.message, 'error'); return }
+
+  clientesCarregados = data
 
   document.getElementById('clientes-tbody').innerHTML =
     data.length
@@ -340,32 +438,101 @@ async function loadClientes() {
             <td>${c.cep    || '—'}</td>
             <td>${c.cidade || '—'}</td>
             <td>${fmtData(c.created_at)}</td>
+            <td>
+              <div class="dropdown" id="dd-cli-${c.id}">
+                <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-cli-${c.id}')">⋮</button>
+                <div class="dropdown-content">
+                  <button class="dropdown-item" onclick="abrirModalEditarCliente('${c.id}')">✏️ Editar</button>
+                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCliente('${c.id}')">🗑️ Excluir</button>
+                </div>
+              </div>
+            </td>
           </tr>`).join('')
-      : '<tr><td colspan="6" class="empty">Nenhum cliente cadastrado ainda</td></tr>'
+      : '<tr><td colspan="7" class="empty">Nenhum cliente cadastrado ainda</td></tr>'
 }
 
 function abrirModalCliente() {
   document.getElementById('form-cliente').reset()
+  document.getElementById('cli-id').value = ''
+  document.getElementById('modal-cliente-titulo').textContent = 'Novo cliente'
   document.getElementById('modal-cliente').classList.add('open')
+}
+
+function abrirModalEditarCliente(id) {
+  const c = clientesCarregados.find(x => x.id === id)
+  if (!c) { toast('Cliente não encontrado', 'error'); return }
+
+  document.getElementById('cli-id').value      = c.id
+  document.getElementById('cli-nome').value    = c.nome    || ''
+  document.getElementById('cli-contato').value = c.contato || ''
+  document.getElementById('cli-cep').value     = c.cep     || ''
+  document.getElementById('cli-cidade').value  = c.cidade  || ''
+  document.getElementById('cli-obs').value     = c.observacao || ''
+
+  document.getElementById('modal-cliente-titulo').textContent = `Editar: ${c.nome}`
+  document.getElementById('modal-cliente').classList.add('open')
+}
+
+function abrirModalExcluirCliente(id) {
+  const c = clientesCarregados.find(x => x.id === id)
+  if (!c) return
+
+  document.getElementById('exc-cli-id').value          = id
+  document.getElementById('exc-cli-nome').textContent  = c.nome || '—'
+  document.getElementById('modal-excluir-cliente').classList.add('open')
+}
+
+async function confirmarExclusaoCliente() {
+  const id = document.getElementById('exc-cli-id').value
+  if (!id) return
+
+  // Verifica se o cliente tem pedidos vinculados
+  const { data: pedidosVinculados, error: errCheck } = await sb.schema(S)
+    .from('pedidos').select('id').eq('cliente_id', id).limit(1)
+
+  if (errCheck) { toast('Erro ao verificar pedidos: ' + errCheck.message, 'error'); return }
+
+  if (pedidosVinculados && pedidosVinculados.length > 0) {
+    toast('Este cliente possui pedidos vinculados e não pode ser excluído.', 'error')
+    fecharModal('modal-excluir-cliente')
+    return
+  }
+
+  const { error } = await sb.schema(S).from('clientes').delete().eq('id', id)
+  if (error) { toast('Erro ao excluir: ' + error.message, 'error'); return }
+
+  toast('Cliente excluído com sucesso!')
+  fecharModal('modal-excluir-cliente')
+  loadClientes()
 }
 
 async function salvarCliente(e) {
   e.preventDefault()
 
+  const editId = document.getElementById('cli-id').value
+
   const payload = {
-    nome:      document.getElementById('cli-nome').value.trim(),
-    contato:   document.getElementById('cli-contato').value.trim(),
-    cep:       document.getElementById('cli-cep').value.trim(),
-    cidade:    document.getElementById('cli-cidade').value.trim(),
-    observacao:document.getElementById('cli-obs').value.trim(),
+    nome:       document.getElementById('cli-nome').value.trim(),
+    contato:    document.getElementById('cli-contato').value.trim(),
+    cep:        document.getElementById('cli-cep').value.trim(),
+    cidade:     document.getElementById('cli-cidade').value.trim(),
+    observacao: document.getElementById('cli-obs').value.trim(),
   }
 
   if (!payload.nome) { toast('Nome é obrigatório', 'error'); return }
 
-  const { error } = await sb.schema(S).from('clientes').insert(payload)
-  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+  if (editId) {
+    // ── UPDATE ──────────────────────────────────────────────────
+    const { error } = await sb.schema(S).from('clientes').update(payload).eq('id', editId)
+    if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
+    toast('Cliente atualizado com sucesso!')
+  } else {
+    // ── INSERT ──────────────────────────────────────────────────
+    const { error } = await sb.schema(S).from('clientes').insert(payload)
+    if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+    toast('Cliente cadastrado!')
+  }
 
-  toast('Cliente cadastrado!')
   fecharModal('modal-cliente')
   loadClientes()
 }
@@ -389,8 +556,13 @@ async function loadCompras() {
             <td><strong style="color: var(--pink-dark);">${brl(c.valor)}</strong></td>
             <td>${c.observacao || '—'}</td>
             <td>
-              <button class="btn-icon" title="Editar" onclick="editarCompra('${c.id}')">✏️</button>
-              <button class="btn-icon" title="Excluir" onclick="abrirModalExcluirCompra('${c.id}')" style="color: #991b1b;">🗑️</button>
+              <div class="dropdown" id="dd-comp-${c.id}">
+                <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-comp-${c.id}')">⋮</button>
+                <div class="dropdown-content">
+                  <button class="dropdown-item" onclick="editarCompra('${c.id}')">✏️ Editar</button>
+                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCompra('${c.id}')">🗑️ Excluir</button>
+                </div>
+              </div>
             </td>
           </tr>`).join('')
       : '<tr><td colspan="6" class="empty">Nenhuma compra registrada ainda</td></tr>'
@@ -473,6 +645,33 @@ async function salvarCompra(e) {
   loadDashboard() 
 }
 
+// ── Sidebar ───────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('sidebar-collapsed')
+}
+
+// ── Dropdown ──────────────────────────────────────────────────────
+function toggleDropdown(id) {
+  const target = document.getElementById(id)
+  const isOpen = target.querySelector('.dropdown-content').classList.contains('open')
+
+  // fecha todos antes de abrir o clicado
+  document.querySelectorAll('.dropdown-content.open')
+    .forEach(el => el.classList.remove('open'))
+
+  if (!isOpen) {
+    target.querySelector('.dropdown-content').classList.add('open')
+  }
+}
+
+// fecha ao clicar fora de qualquer dropdown
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.dropdown')) {
+    document.querySelectorAll('.dropdown-content.open')
+      .forEach(el => el.classList.remove('open'))
+  }
+})
+
 // ── Modais ────────────────────────────────────────────────────────
 function fecharModal(id) {
   document.getElementById(id).classList.remove('open')
@@ -499,8 +698,16 @@ window.loadCompras           = loadCompras
 window.abrirDetalhesPedido   = abrirDetalhesPedido 
 window.salvarNovoStatus      = salvarNovoStatus    
 window.editarCompra          = editarCompra  
-window.abrirModalExcluirCompra = abrirModalExcluirCompra
-window.confirmarExclusao       = confirmarExclusao
+window.abrirModalExcluirCompra  = abrirModalExcluirCompra
+window.confirmarExclusao        = confirmarExclusao
+window.abrirModalEditarPedido   = abrirModalEditarPedido
+window.abrirModalExcluirPedido  = abrirModalExcluirPedido
+window.confirmarExclusaoPedido  = confirmarExclusaoPedido
+window.abrirModalEditarCliente  = abrirModalEditarCliente
+window.abrirModalExcluirCliente = abrirModalExcluirCliente
+window.confirmarExclusaoCliente = confirmarExclusaoCliente
+window.toggleSidebar            = toggleSidebar
+window.toggleDropdown           = toggleDropdown
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =
