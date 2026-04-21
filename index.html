@@ -74,7 +74,11 @@
         <h1>Dashboard</h1>
         <span class="page-sub" id="today-date"></span>
       </div>
-      <button class="btn-primary" onclick="abrirModalPedido()">+ Novo pedido</button>
+      <select id="filtro-periodo" onchange="loadDashboard()" class="periodo-select">
+        <option value="mes">Este mês</option>
+        <option value="trimestre">Últimos 3 meses</option>
+        <option value="tudo" selected>Tudo</option>
+      </select>
     </div>
 
     <div class="dash-layout">
@@ -164,7 +168,11 @@
     </div>
 
     <div class="filter-bar">
-      <select id="filtro-status" onchange="loadPedidos(this.value)">
+      <div class="search-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="busca-pedido" placeholder="Buscar cliente ou código..." oninput="filtrarPedidos()">
+      </div>
+      <select id="filtro-status" onchange="filtrarPedidos()">
         <option value="">Todos os status</option>
         <option>Aguardando confirmação</option>
         <option>Em produção</option>
