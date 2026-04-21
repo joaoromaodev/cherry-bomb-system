@@ -4,12 +4,12 @@
 // ================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { CONFIG } from './config.js' // Verifique se o caminho está correto
 
 // ── Configuração do Supabase ──────────────────────────────────────
-const SUPABASE_URL = 'https://kxvnotkxfyuscqouhacw.supabase.co'
-const SUPABASE_KEY = 'sb_publishable_76hxZpBq-29VZ0wCe82Q4g_NhQ12GeH'
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY)
-const S  = 'cherry_bomb'   // schema
+
+const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY)
+const S  = CONFIG.SCHEMA
 
 // ── Utilitários ───────────────────────────────────────────────────
 function brl(val) {
