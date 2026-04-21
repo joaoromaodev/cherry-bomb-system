@@ -114,28 +114,7 @@ body {
 .bottom-nav-btn.active svg { transform: scale(1.12); }
 
 /* ── FAB ─────────────────────────────────────────────────────────── */
-.fab {
-  position: fixed;
-  bottom: 82px; right: 16px;
-  width: 50px; height: 50px;
-  border-radius: 50%;
-  background: var(--cherry);
-  color: #fff;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 18px rgba(163,28,46,0.42);
-  z-index: 89;
-  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
-}
-
-.fab:hover, .fab:active {
-  background: var(--cherry-hover);
-  transform: scale(1.08);
-  box-shadow: 0 6px 22px rgba(163,28,46,0.52);
-}
+.fab { display: none; }
 
 /* ══════════════════════════════════════════════
    LAYOUT DESKTOP (≥ 768px)
@@ -174,7 +153,7 @@ body {
 
 .brand-logo {
   width: 100%;
-  max-width: 148px;
+  max-width: 80px;
   height: auto;
   display: block;
   object-fit: contain;
