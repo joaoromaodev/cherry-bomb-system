@@ -8,8 +8,10 @@ import { CONFIG } from './config.js' // Verifique se o caminho está correto
 
 // ── Configuração do Supabase ──────────────────────────────────────
 
+// Garantimos que o cliente do Supabase use as chaves do config.js
 const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY)
-const S  = CONFIG.SCHEMA
+// O nome do schema no banco é 'cherry_bomb' (com underline), verifique se no seu config.js está assim.
+const S = CONFIG.SCHEMA || 'cherry_bomb'
 
 // ── Utilitários ───────────────────────────────────────────────────
 function brl(val) {
@@ -80,7 +82,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 
 // ── Dashboard ─────────────────────────────────────────────────────
 async function loadDashboard() {
-  const { data: pedidos, error } = await sb.schema(S).from('pedidos').select('*')
+  const { data: pedidos, error } = await sb.from('pedidos').select('*').schema(S)
   if (error) { toast('Erro ao carregar dashboard: ' + error.message, 'error'); return }
 
   const total       = pedidos.length
@@ -306,8 +308,7 @@ async function salvarPedido(e) {
     data_pedido:         new Date().toISOString().split('T')[0],
   }
 
-  const { data: pedido, error } = await sb
-    .schema(S).from('pedidos').insert(pedidoPayload).select().single()
+  const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
 
   if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
