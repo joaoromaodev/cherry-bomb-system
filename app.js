@@ -4,13 +4,10 @@
 // ================================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { CONFIG } from './config.js' // Verifique se o caminho está correto
+import { CONFIG } from './config.js'
 
 // ── Configuração do Supabase ──────────────────────────────────────
-
-// Garantimos que o cliente do Supabase use as chaves do config.js
 const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY)
-// O nome do schema no banco é 'cherry_bomb' (com underline), verifique se no seu config.js está assim.
 const S = CONFIG.SCHEMA || 'cherry_bomb'
 
 // ── Utilitários ───────────────────────────────────────────────────
@@ -20,17 +17,16 @@ function brl(val) {
 
 function fmtData(d) {
   if (!d) return '—'
-  // Lê a data que vem do banco e converte para o fuso horário local
   const data = new Date(d);
   if (isNaN(data.getTime())) return '—'; 
   return data.toLocaleDateString('pt-BR');
 }
 
 function calcPreco(qtd) {
-  if (qtd < 10) return null   // abaixo do mínimo
-  if (qtd < 20) return 8      // 10–19 un
-  if (qtd < 50) return 6      // 20–49 un
-  return 5                    // 50+ un
+  if (qtd < 10) return null   
+  if (qtd < 20) return 8      
+  if (qtd < 50) return 6      
+  return 5                    
 }
 
 function toast(msg, tipo = 'ok') {
@@ -84,9 +80,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 })
 
 // ── Dashboard ─────────────────────────────────────────────────────
-// ── Dashboard ─────────────────────────────────────────────────────
 async function loadDashboard() {
-  // Dica de Sênior: Promise.all busca Pedidos e Compras ao mesmo tempo (muito mais rápido!)
   const [resPedidos, resCompras] = await Promise.all([
     sb.schema(S).from('pedidos').select('*'),
     sb.schema(S).from('compras').select('*')
@@ -98,27 +92,22 @@ async function loadDashboard() {
   const pedidos = resPedidos.data || []
   const compras = resCompras.data || []
 
-  // 1. Cálculos de Pedidos
   const total       = pedidos.length
   const faturamento = pedidos.reduce((s, p) => s + (p.total_final || 0), 0)
   const emProd      = pedidos.filter(p => p.status_pedido?.toLowerCase().includes('produção')).length
   const pendentes   = pedidos.filter(p => p.status_pagamento === 'Pendente').length
 
-  // 2. Cálculos de Custos e Lucro
   const custos = compras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
   const lucro  = faturamento - custos
 
-  // 3. Preenche a tela
   document.getElementById('stat-total').textContent = total
   document.getElementById('stat-fat').textContent   = brl(faturamento)
   document.getElementById('stat-prod').textContent  = emProd
   document.getElementById('stat-pend').textContent  = pendentes
   
-  // Preenche os cards novos
   document.getElementById('stat-custos').textContent = brl(custos)
   document.getElementById('stat-lucro').textContent  = brl(lucro)
 
-  // 4. Lista de Recentes
   const recentes = [...pedidos]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     .slice(0, 6)
@@ -137,10 +126,8 @@ async function loadDashboard() {
       : '<tr><td colspan="6" class="empty">Nenhum pedido ainda</td></tr>'
 }
 
-
-
 // ── Pedidos — listagem ────────────────────────────────────────────
-let pedidosCarregados = []; // Guarda os pedidos na memória
+let pedidosCarregados = []; 
 
 async function loadPedidos(filtroStatus = '') {
   let query = sb.schema(S).from('pedidos')
@@ -152,7 +139,6 @@ async function loadPedidos(filtroStatus = '') {
   const { data, error } = await query
   if (error) { toast('Erro ao carregar pedidos: ' + error.message, 'error'); return }
   
-  // A variável precisa ser preenchida DEPOIS que a busca (query) termina
   pedidosCarregados = data; 
 
   document.getElementById('pedidos-tbody').innerHTML =
@@ -183,34 +169,27 @@ async function loadPedidos(filtroStatus = '') {
 }
 
 // ── Pedido — atualizar status (edição rápida) ─────────────────────
-// ── Abrir modal de detalhes ───────────────────────────────────────
 function abrirDetalhesPedido(id) {
-  // Procura o pedido na memória
   const p = pedidosCarregados.find(x => x.id === id);
   if(!p) return;
 
-  // Preenche os textos no HTML
   document.getElementById('det-id').value = p.id;
   document.getElementById('det-codigo').textContent = p.codigo || '—';
   document.getElementById('det-cliente').textContent = p.cliente_nome || '—';
   document.getElementById('det-produto').textContent = p.produto || '—';
   document.getElementById('det-obs').textContent = p.observacao || 'Nenhuma observação.';
 
-  // Monta a lista de cores/variações
   const varStr = (p.itens_pedido || [])
     .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
     .join('<br>');
   document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.';
 
-  // Seleciona o status atual nos campos
   document.getElementById('det-status-pedido').value = p.status_pedido;
   document.getElementById('det-status-pagamento').value = p.status_pagamento;
 
-  // Abre a janela
   document.getElementById('modal-detalhes').classList.add('open');
 }
 
-// ── Salvar o novo status ──────────────────────────────────────────
 async function salvarNovoStatus(e) {
   e.preventDefault();
   
@@ -227,8 +206,8 @@ async function salvarNovoStatus(e) {
 
   toast('Status atualizado com sucesso!');
   fecharModal('modal-detalhes');
-  loadPedidos(); // Recarrega a tabela
-  loadDashboard(); // Atualiza os números do início
+  loadPedidos(); 
+  loadDashboard(); 
 }
 
 // ── Modal Novo Pedido ─────────────────────────────────────────────
@@ -335,7 +314,6 @@ async function salvarPedido(e) {
 
   if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
-  // Salva as variações (itens)
   if (variacoes.length) {
     const itens = variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
     await sb.schema(S).from('itens_pedido').insert(itens)
@@ -391,8 +369,9 @@ async function salvarCliente(e) {
   fecharModal('modal-cliente')
   loadClientes()
 }
+
 // ── Compras / Custos ──────────────────────────────────────────────
-let comprasCarregadas = []; // Guarda as compras na memória para poder editar
+let comprasCarregadas = [];
 
 async function loadCompras() {
   const { data, error } = await sb.schema(S).from('compras').select('*').order('data_compra', { ascending: false })
@@ -419,12 +398,11 @@ async function loadCompras() {
 
 function abrirModalCompra() {
   document.getElementById('form-compra').reset()
-  document.getElementById('comp-id').value = '' // Limpa o ID para nova compra
+  document.getElementById('comp-id').value = '' 
   document.getElementById('comp-data').value = new Date().toISOString().split('T')[0]
   document.getElementById('modal-compra').classList.add('open')
 }
 
-// ── Editar Compra (Blindado contra erros de data)
 function editarCompra(id) {
   const c = comprasCarregadas.find(x => x.id === id);
   if(!c) { toast('Erro ao buscar compra', 'error'); return; }
@@ -434,7 +412,6 @@ function editarCompra(id) {
   document.getElementById('comp-cat').value = c.categoria || 'Outros';
   document.getElementById('comp-valor').value = c.valor || 0;
   
-  // Tratamento seguro da data para voltar pro campo
   const dataFormatada = c.data_compra ? c.data_compra.split('T')[0] : '';
   document.getElementById('comp-data').value = dataFormatada;
   
@@ -443,7 +420,6 @@ function editarCompra(id) {
   document.getElementById('modal-compra').classList.add('open');
 }
 
-// ── Funções do Novo Modal de Exclusão
 function abrirModalExcluirCompra(id) {
   const c = comprasCarregadas.find(x => x.id === id);
   if(!c) return;
@@ -463,10 +439,9 @@ async function confirmarExclusao() {
   toast('Custo excluído!');
   fecharModal('modal-excluir');
   loadCompras();
-  loadDashboard(); // Atualiza a matemática do Dashboard
+  loadDashboard(); 
 }
 
-// ── Salvar ou Atualizar
 async function salvarCompra(e) {
   e.preventDefault()
 
@@ -495,41 +470,9 @@ async function salvarCompra(e) {
   toast(id ? 'Custo atualizado!' : 'Novo custo registrado!')
   fecharModal('modal-compra')
   loadCompras()
-  loadDashboard()
+  loadDashboard() 
 }
-// Salva (Insert) ou Atualiza (Update) dependendo do campo oculto
-async function salvarCompra(e) {
-  e.preventDefault()
 
-  const id = document.getElementById('comp-id').value;
-  const payload = {
-    descricao:   document.getElementById('comp-desc').value.trim(),
-    categoria:   document.getElementById('comp-cat').value,
-    valor:       parseFloat(document.getElementById('comp-valor').value) || 0,
-    data_compra: document.getElementById('comp-data').value,
-    observacao:  document.getElementById('comp-obs').value.trim(),
-  }
-
-  if (!payload.descricao || payload.valor <= 0) { toast('Preencha descrição e valor válido', 'error'); return }
-
-  let error;
-  if (id) {
-    // Se tem ID, ATUALIZA
-    const res = await sb.schema(S).from('compras').update(payload).eq('id', id);
-    error = res.error;
-  } else {
-    // Se não tem ID, CRIA NOVO
-    const res = await sb.schema(S).from('compras').insert(payload);
-    error = res.error;
-  }
-
-  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
-
-  toast(id ? 'Custo atualizado!' : 'Novo custo registrado!')
-  fecharModal('modal-compra')
-  loadCompras()
-  loadDashboard() // Atualiza a matemática do Dashboard
-}
 // ── Modais ────────────────────────────────────────────────────────
 function fecharModal(id) {
   document.getElementById(id).classList.remove('open')
@@ -543,23 +486,19 @@ function fecharSeBackdrop(e, id) {
 window.navigate              = navigate
 window.abrirModalPedido      = abrirModalPedido
 window.abrirModalCliente     = abrirModalCliente
+window.abrirModalCompra      = abrirModalCompra
 window.fecharModal           = fecharModal
 window.fecharSeBackdrop      = fecharSeBackdrop
 window.addVariacao           = addVariacao
 window.recalcPedido          = recalcPedido
 window.salvarPedido          = salvarPedido
 window.salvarCliente         = salvarCliente
-window.loadPedidos           = loadPedidos
-window.abrirDetalhesPedido   = abrirDetalhesPedido // <--- Função NOVA aqui
-window.salvarNovoStatus      = salvarNovoStatus    // <--- Função NOVA aqui
-window.loadCompras           = loadCompras
-window.abrirModalCompra      = abrirModalCompra
 window.salvarCompra          = salvarCompra
+window.loadPedidos           = loadPedidos
 window.loadCompras           = loadCompras
-window.editarCompra          = editarCompra  // <--- NOVA
-window.excluirCompra         = excluirCompra // <--- NOVA
-window.loadCompras             = loadCompras
-window.abrirModalCompra        = abrirModalCompra
+window.abrirDetalhesPedido   = abrirDetalhesPedido 
+window.salvarNovoStatus      = salvarNovoStatus    
+window.editarCompra          = editarCompra  
 window.abrirModalExcluirCompra = abrirModalExcluirCompra
 window.confirmarExclusao       = confirmarExclusao
 
