@@ -96,17 +96,37 @@ async function loadDashboard() {
   const faturamento = pedidos.reduce((s, p) => s + (p.total_final || 0), 0)
   const emProd      = pedidos.filter(p => p.status_pedido?.toLowerCase().includes('produção')).length
   const pendentes   = pedidos.filter(p => p.status_pagamento === 'Pendente').length
+  const entregues   = pedidos.filter(p => p.status_pedido === 'Entregue').length
 
-  const custos = compras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
-  const lucro  = faturamento - custos
+  // Receita REAL: apenas o que o cliente efetivamente já pagou
+  const receitaRecebida = pedidos.reduce((s, p) => {
+    const val = p.total_final || 0
+    if (p.status_pagamento === 'Pago integral') return s + val
+    if (p.status_pagamento === '50% pago')      return s + (val * 0.5)
+    return s // Pendente ou Reembolsado — não entrou no caixa
+  }, 0)
 
-  document.getElementById('stat-total').textContent = total
-  document.getElementById('stat-fat').textContent   = brl(faturamento)
-  document.getElementById('stat-prod').textContent  = emProd
-  document.getElementById('stat-pend').textContent  = pendentes
-  
-  document.getElementById('stat-custos').textContent = brl(custos)
-  document.getElementById('stat-lucro').textContent  = brl(lucro)
+  // Expectativa: o que ainda vai entrar
+  const valorAReceber = pedidos.reduce((s, p) => {
+    const val = p.total_final || 0
+    if (p.status_pagamento === 'Pendente')  return s + val
+    if (p.status_pagamento === '50% pago')  return s + (val * 0.5)
+    return s
+  }, 0)
+
+  const custos      = compras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
+  const lucro       = faturamento - custos
+  const saldoEmCaixa = receitaRecebida - custos
+
+  document.getElementById('stat-total').textContent     = total
+  document.getElementById('stat-fat').textContent       = brl(faturamento)
+  document.getElementById('stat-prod').textContent      = emProd
+  document.getElementById('stat-pend').textContent      = pendentes
+  document.getElementById('stat-entregues').textContent = entregues
+  document.getElementById('stat-receber').textContent   = brl(valorAReceber)
+  document.getElementById('stat-custos').textContent    = brl(custos)
+  document.getElementById('stat-lucro').textContent     = brl(lucro)
+  document.getElementById('stat-caixa').textContent     = brl(saldoEmCaixa)
 
   const recentes = [...pedidos]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -559,7 +579,7 @@ async function loadCompras() {
               <div class="dropdown" id="dd-comp-${c.id}">
                 <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-comp-${c.id}')">⋮</button>
                 <div class="dropdown-content">
-                  <button class="dropdown-item" onclick="editarCompra('${c.id}')">✏️ Editar</button>
+                  <button class="dropdown-item" onclick="abrirModalEditarCompra('${c.id}')">✏️ Editar</button>
                   <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirCompra('${c.id}')">🗑️ Excluir</button>
                 </div>
               </div>
@@ -570,26 +590,28 @@ async function loadCompras() {
 
 function abrirModalCompra() {
   document.getElementById('form-compra').reset()
-  document.getElementById('comp-id').value = '' 
+  document.getElementById('comp-id').value = ''
   document.getElementById('comp-data').value = new Date().toISOString().split('T')[0]
+  document.getElementById('modal-compra-titulo').textContent = 'Registrar Custo'
   document.getElementById('modal-compra').classList.add('open')
 }
 
-function editarCompra(id) {
-  const c = comprasCarregadas.find(x => x.id === id);
-  if(!c) { toast('Erro ao buscar compra', 'error'); return; }
+function abrirModalEditarCompra(id) {
+  const c = comprasCarregadas.find(x => x.id === id)
+  if (!c) { toast('Erro ao buscar compra', 'error'); return }
 
-  document.getElementById('comp-id').value = c.id; 
-  document.getElementById('comp-desc').value = c.descricao || '';
-  document.getElementById('comp-cat').value = c.categoria || 'Outros';
-  document.getElementById('comp-valor').value = c.valor || 0;
-  
-  const dataFormatada = c.data_compra ? c.data_compra.split('T')[0] : '';
-  document.getElementById('comp-data').value = dataFormatada;
-  
-  document.getElementById('comp-obs').value = c.observacao || '';
+  document.getElementById('comp-id').value    = c.id
+  document.getElementById('comp-desc').value  = c.descricao || ''
+  document.getElementById('comp-cat').value   = c.categoria || 'Outros'
+  document.getElementById('comp-valor').value = c.valor || 0
 
-  document.getElementById('modal-compra').classList.add('open');
+  const dataFormatada = c.data_compra ? c.data_compra.split('T')[0] : ''
+  document.getElementById('comp-data').value = dataFormatada
+
+  document.getElementById('comp-obs').value = c.observacao || ''
+
+  document.getElementById('modal-compra-titulo').textContent = `Editar Custo: ${c.descricao}`
+  document.getElementById('modal-compra').classList.add('open')
 }
 
 function abrirModalExcluirCompra(id) {
@@ -702,7 +724,7 @@ window.loadPedidos           = loadPedidos
 window.loadCompras           = loadCompras
 window.abrirDetalhesPedido   = abrirDetalhesPedido 
 window.salvarNovoStatus      = salvarNovoStatus    
-window.editarCompra          = editarCompra  
+window.abrirModalEditarCompra  = abrirModalEditarCompra  
 window.abrirModalExcluirCompra  = abrirModalExcluirCompra
 window.confirmarExclusao        = confirmarExclusao
 window.abrirModalEditarPedido   = abrirModalEditarPedido

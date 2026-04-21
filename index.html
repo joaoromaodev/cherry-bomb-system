@@ -54,31 +54,76 @@
       <button class="btn-primary" onclick="abrirModalPedido()">+ Novo pedido</button>
     </div>
 
-    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-      <div class="stat-card">
-        <span class="stat-label">Faturamento Bruto</span>
-        <span class="stat-value" id="stat-fat">—</span>
+    <div class="dash-layout">
+
+      <!-- GRUPO 1: FINANCEIRO REAL -->
+      <div class="dash-group">
+        <span class="dash-group-title">💰 Financeiro Real</span>
+        <div class="dash-row dash-row-1">
+          <div class="stat-card-hero">
+            <div>
+              <span class="stat-label">Saldo em Caixa Atual</span>
+              <div class="stat-value" id="stat-caixa">—</div>
+              <div class="hero-sub">Receita recebida − custos pagos</div>
+            </div>
+            <div class="hero-icon">💸</div>
+          </div>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Custos / Saídas</span>
-        <span class="stat-value warn" id="stat-custos">—</span>
+
+      <!-- GRUPO 2: DESEMPENHO -->
+      <div class="dash-group">
+        <span class="dash-group-title">📈 Desempenho</span>
+        <div class="dash-row dash-row-3">
+          <div class="stat-card">
+            <span class="stat-label">Faturamento Bruto</span>
+            <span class="stat-value" id="stat-fat">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Custos / Saídas</span>
+            <span class="stat-value warn" id="stat-custos">—</span>
+          </div>
+          <div class="stat-card" style="background: var(--pink-50); border-color: var(--pink-200);">
+            <span class="stat-label" style="color: var(--pink-dark);">Lucro Líquido</span>
+            <span class="stat-value accent" id="stat-lucro">—</span>
+          </div>
+        </div>
       </div>
-      <div class="stat-card" style="background: var(--pink-50); border-color: var(--pink-200);">
-        <span class="stat-label" style="color: var(--pink-dark);">Lucro Líquido</span>
-        <span class="stat-value accent" id="stat-lucro">—</span>
+
+      <!-- GRUPO 3: FLUXO OPERACIONAL -->
+      <div class="dash-group">
+        <span class="dash-group-title">⚙️ Fluxo Operacional</span>
+        <div class="dash-row dash-row-3">
+          <div class="stat-card">
+            <span class="stat-label">Total de Pedidos</span>
+            <span class="stat-value" id="stat-total">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Em Produção</span>
+            <span class="stat-value" id="stat-prod">—</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Entregues</span>
+            <span class="stat-value" style="color: #065f46;" id="stat-entregues">—</span>
+          </div>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Total de pedidos</span>
-        <span class="stat-value" id="stat-total">—</span>
+
+      <!-- GRUPO 4: EXPECTATIVA -->
+      <div class="dash-group">
+        <span class="dash-group-title">🕐 Expectativa</span>
+        <div class="dash-row dash-row-2">
+          <div class="stat-card">
+            <span class="stat-label">Aguardando Pagamento</span>
+            <span class="stat-value" style="color: #b45309;" id="stat-pend">—</span>
+          </div>
+          <div class="stat-card" style="background: #f0fdf4; border-color: #bbf7d0;">
+            <span class="stat-label" style="color: #065f46;">Total a Receber</span>
+            <span class="stat-value" style="color: #16a34a;" id="stat-receber">—</span>
+          </div>
+        </div>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Em produção</span>
-        <span class="stat-value" id="stat-prod">—</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Aguardando pagamento</span>
-        <span class="stat-value" style="color: #b45309;" id="stat-pend">—</span>
-      </div>
+
     </div>
   </section>
 
@@ -93,7 +138,6 @@
       <select id="filtro-status" onchange="loadPedidos(this.value)">
         <option value="">Todos os status</option>
         <option>Aguardando confirmação</option>
-        <option>50% pago — em produção</option>
         <option>Em produção</option>
         <option>Pronto para envio</option>
         <option>Enviado</option>
@@ -221,7 +265,6 @@
           <label>Status do pedido</label>
           <select id="pedido-status">
             <option>Aguardando confirmação</option>
-            <option>50% pago — em produção</option>
             <option>Em produção</option>
             <option>Pronto para envio</option>
             <option>Enviado</option>
@@ -317,7 +360,6 @@
           <label>Status da Produção</label>
           <select id="det-status-pedido">
             <option>Aguardando confirmação</option>
-            <option>50% pago — em produção</option>
             <option>Em produção</option>
             <option>Pronto para envio</option>
             <option>Enviado</option>
@@ -346,10 +388,11 @@
 <div id="modal-compra" class="modal" onclick="fecharSeBackdrop(event,'modal-compra')">
   <div class="modal-box">
     <div class="modal-header">
-      <h2>Registrar Custo</h2>
+      <h2 id="modal-compra-titulo">Registrar Custo</h2>
       <button class="modal-close" onclick="fecharModal('modal-compra')">×</button>
     </div>
     <form id="form-compra" onsubmit="salvarCompra(event)">
+      <input type="hidden" id="comp-id">
       <div class="form-group">
         <label>Descrição *</label>
         <input type="text" id="comp-desc" placeholder="ex: 10 metros de cetim vermelho" required>
