@@ -130,14 +130,17 @@
           <div class="stat-card">
             <span class="stat-label">Total de Pedidos</span>
             <span class="stat-value" id="stat-total">—</span>
+            <span class="stat-sub" id="stat-total-val">—</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Em Produção</span>
             <span class="stat-value" id="stat-prod">—</span>
+            <span class="stat-sub" id="stat-prod-val">—</span>
           </div>
           <div class="stat-card">
             <span class="stat-label">Entregues</span>
             <span class="stat-value" style="color: #065f46;" id="stat-entregues">—</span>
+            <span class="stat-sub" id="stat-entregues-val">—</span>
           </div>
         </div>
       </div>
@@ -149,10 +152,12 @@
           <div class="stat-card">
             <span class="stat-label">Sem pagamento</span>
             <span class="stat-value" style="color: #b45309;" id="stat-pend">—</span>
+            <span class="stat-sub" id="stat-pend-val">—</span>
           </div>
           <div class="stat-card" style="background: #fefce8; border-color: #fde68a;">
             <span class="stat-label" style="color: #92400e;">Sinal recebido</span>
             <span class="stat-value" style="color: #b45309;" id="stat-sinal">—</span>
+            <span class="stat-sub" id="stat-sinal-val">—</span>
           </div>
           <div class="stat-card" style="background: #f0fdf4; border-color: #bbf7d0;">
             <span class="stat-label" style="color: #065f46;">Total a Receber</span>
@@ -397,6 +402,19 @@
       
       <p style="margin-bottom:12px;"><strong>Observações:</strong> <span id="det-obs" style="color: var(--muted);"></span></p>
       <div id="det-financeiro" style="background: var(--cherry-50); border:1px solid var(--cherry-100); border-radius:10px; padding:12px 14px; margin-bottom:8px;"></div>
+
+      <div style="background: var(--surface); border: 1.5px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:8px;">
+        <label style="display:block; font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">
+          Atualizar valor já pago
+        </label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="number" id="det-adiantado-input" placeholder="ex: 80.00" min="0" step="0.01" inputmode="decimal"
+            style="flex:1; border:1.5px solid var(--border); border-radius:8px; padding:8px 10px; font-size:14px; font-family:'Nunito',sans-serif; outline:none; color:var(--text);">
+          <button type="button" class="btn-primary" style="padding:8px 14px; font-size:13px;" onclick="salvarAdiantadoDetalhes()">
+            Salvar
+          </button>
+        </div>
+      </div>
     </div>
 
     <form id="form-status" onsubmit="salvarNovoStatus(event)">

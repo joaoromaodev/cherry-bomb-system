@@ -421,6 +421,13 @@ body {
 .stat-value.accent { color: var(--cherry); }
 .stat-value.warn   { color: #b45309; }
 
+.stat-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hint);
+  margin-top: 2px;
+}
+
 /* ── Hero Card — Saldo em Caixa ──────────────────────────────────── */
 .stat-card-hero {
   background: linear-gradient(135deg, var(--cherry-dark) 0%, var(--cherry) 100%);

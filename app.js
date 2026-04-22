@@ -143,16 +143,35 @@ async function loadDashboard() {
   const lucro        = faturamento - custos
   const saldoEmCaixa = receitaRecebida - custos
 
-  document.getElementById('stat-total').textContent     = total
-  document.getElementById('stat-fat').textContent       = brl(faturamento)
-  document.getElementById('stat-prod').textContent      = emProd
-  document.getElementById('stat-pend').textContent      = pendentes
-  document.getElementById('stat-sinal').textContent     = comSinal
-  document.getElementById('stat-entregues').textContent = entregues
-  document.getElementById('stat-receber').textContent   = brl(valorAReceber)
-  document.getElementById('stat-custos').textContent    = brl(custos)
-  document.getElementById('stat-lucro').textContent     = brl(lucro)
-  document.getElementById('stat-caixa').textContent     = brl(saldoEmCaixa)
+  // Totais monetários por grupo
+  const totalVal     = pedidos.reduce((s, p) => s + (p.total_final || 0), 0)
+  const prodVal      = pedidos.filter(p => p.status_pedido?.toLowerCase().includes('produção'))
+                               .reduce((s, p) => s + (p.total_final || 0), 0)
+  const entreguesVal = pedidos.filter(p => p.status_pedido === 'Entregue')
+                               .reduce((s, p) => s + (p.total_final || 0), 0)
+  const pendVal      = pedidos.filter(p => p.status_pagamento === 'Pendente')
+                               .reduce((s, p) => s + (p.total_final || 0), 0)
+  const sinalVal     = pedidos.filter(p =>
+                         (parseFloat(p.valor_adiantado) || 0) > 0 &&
+                         p.status_pagamento !== 'Pago integral' &&
+                         p.status_pagamento !== 'Reembolsado'
+                       ).reduce((s, p) => s + (parseFloat(p.valor_adiantado) || 0), 0)
+
+  document.getElementById('stat-total').textContent         = total
+  document.getElementById('stat-total-val').textContent     = brl(totalVal)
+  document.getElementById('stat-fat').textContent           = brl(faturamento)
+  document.getElementById('stat-prod').textContent          = emProd
+  document.getElementById('stat-prod-val').textContent      = brl(prodVal)
+  document.getElementById('stat-pend').textContent          = pendentes
+  document.getElementById('stat-pend-val').textContent      = brl(pendVal)
+  document.getElementById('stat-sinal').textContent         = comSinal
+  document.getElementById('stat-sinal-val').textContent     = brl(sinalVal)
+  document.getElementById('stat-entregues').textContent     = entregues
+  document.getElementById('stat-entregues-val').textContent = brl(entreguesVal)
+  document.getElementById('stat-receber').textContent       = brl(valorAReceber)
+  document.getElementById('stat-custos').textContent        = brl(custos)
+  document.getElementById('stat-lucro').textContent         = brl(lucro)
+  document.getElementById('stat-caixa').textContent         = brl(saldoEmCaixa)
 
   // tabela de recentes removida no redesign — bloco limpo
 }
@@ -285,6 +304,19 @@ function abrirDetalhesPedido(id) {
   document.getElementById('det-status-pagamento').value = p.status_pagamento;
 
   document.getElementById('modal-detalhes').classList.add('open');
+}
+
+async function salvarAdiantadoDetalhes() {
+  const id    = document.getElementById('det-id').value
+  const valor = parseFloat(document.getElementById('det-adiantado-input').value) || 0
+
+  const { error } = await sb.rpc('atualizar_adiantado', { p_id: id, p_valor: valor })
+  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+
+  toast('Adiantamento atualizado!')
+  fecharModal('modal-detalhes')
+  loadPedidos()
+  loadDashboard()
 }
 
 async function salvarNovoStatus(e) {
@@ -832,7 +864,8 @@ window.abrirModalExcluirCliente = abrirModalExcluirCliente
 window.confirmarExclusaoCliente = confirmarExclusaoCliente
 window.toggleSidebar            = toggleSidebar
 window.toggleDropdown           = toggleDropdown
-window.filtrarPedidos           = filtrarPedidos
+window.filtrarPedidos             = filtrarPedidos
+window.salvarAdiantadoDetalhes    = salvarAdiantadoDetalhes
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =
