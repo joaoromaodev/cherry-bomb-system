@@ -1,0 +1,4 @@
+{
+  "buildCommand": "echo \"export const CONFIG = { SUPABASE_URL: '$SUPABASE_URL', SUPABASE_KEY: '$SUPABASE_KEY', SCHEMA: 'public' };\" > config.js",
+  "outputDirectory": "."
+}
