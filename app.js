@@ -172,7 +172,16 @@ async function loadPedidos(filtroStatus = '') {
   
   pedidosCarregados = data; 
 
- pedidosCarregados = data
+ // busca adiantamentos via RPC (contorna cache do PostgREST)
+  const { data: adiantamentos } = await sb.schema(S).rpc('get_adiantamentos')
+
+  if (adiantamentos) {
+    const mapaAdiantados = {}
+    adiantamentos.forEach(a => { mapaAdiantados[a.pedido_id] = a.valor_adiantado })
+    data.forEach(p => { p.valor_adiantado = mapaAdiantados[p.id] || 0 })
+  }
+
+  pedidosCarregados = data
 
   renderPedidos(data)
 }
