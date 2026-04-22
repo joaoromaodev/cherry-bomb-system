@@ -108,8 +108,14 @@ async function loadDashboard() {
   if (resPedidos.error) { toast('Erro ao carregar pedidos: ' + resPedidos.error.message, 'error'); return }
   if (resCompras.error) { toast('Erro ao carregar compras: ' + resCompras.error.message, 'error'); return }
 
-  const pedidos = resPedidos.data || []
-  const compras = resCompras.data || []
+  const todosPedidos = resPedidos.data || []
+  const compras      = resCompras.data || []
+
+  // Exclui pedidos em fase de negociação de todos os cálculos
+  const pedidos = todosPedidos.filter(p => p.status_pedido !== 'Aguardando confirmação')
+
+  // Contador separado para mostrar quantos estão aguardando
+  const aguardando = todosPedidos.filter(p => p.status_pedido === 'Aguardando confirmação').length
 
   const total       = pedidos.length
   const faturamento = pedidos.reduce((s, p) => s + (p.total_final || 0), 0)
@@ -158,6 +164,7 @@ async function loadDashboard() {
                        ).reduce((s, p) => s + (parseFloat(p.valor_adiantado) || 0), 0)
 
   document.getElementById('stat-total').textContent         = total
+  document.getElementById('stat-aguardando').textContent    = aguardando
   // stat-total-val removido
   document.getElementById('stat-fat').textContent           = brl(faturamento)
   document.getElementById('stat-prod').textContent          = emProd
