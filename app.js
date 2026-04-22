@@ -117,30 +117,37 @@ async function loadDashboard() {
   const pendentes   = pedidos.filter(p => p.status_pagamento === 'Pendente').length
   const entregues   = pedidos.filter(p => p.status_pedido === 'Entregue').length
 
-  // Receita REAL: apenas o que o cliente efetivamente já pagou
+  // Receita REAL: soma dos valores já adiantados + pedidos pagos integralmente
   const receitaRecebida = pedidos.reduce((s, p) => {
-    const val = p.total_final || 0
-    if (p.status_pagamento === 'Pago integral') return s + val
-    if (p.status_pagamento === '50% pago')      return s + (val * 0.5)
-    return s // Pendente ou Reembolsado — não entrou no caixa
+    if (p.status_pagamento === 'Reembolsado') return s
+    if (p.status_pagamento === 'Pago integral') return s + (p.total_final || 0)
+    return s + (parseFloat(p.valor_adiantado) || 0)
   }, 0)
 
-  // Expectativa: o que ainda vai entrar
+  // Expectativa: total − o que já foi pago
   const valorAReceber = pedidos.reduce((s, p) => {
-    const val = p.total_final || 0
-    if (p.status_pagamento === 'Pendente')  return s + val
-    if (p.status_pagamento === '50% pago')  return s + (val * 0.5)
-    return s
+    if (p.status_pagamento === 'Pago integral') return s
+    if (p.status_pagamento === 'Reembolsado')   return s
+    const adiantado = parseFloat(p.valor_adiantado) || 0
+    return s + (p.total_final || 0) - adiantado
   }, 0)
 
-  const custos      = compras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
-  const lucro       = faturamento - custos
+  // Pedidos com sinal: têm valor_adiantado > 0 mas ainda não pagaram tudo
+  const comSinal = pedidos.filter(p =>
+    (parseFloat(p.valor_adiantado) || 0) > 0 &&
+    p.status_pagamento !== 'Pago integral' &&
+    p.status_pagamento !== 'Reembolsado'
+  ).length
+
+  const custos       = compras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
+  const lucro        = faturamento - custos
   const saldoEmCaixa = receitaRecebida - custos
 
   document.getElementById('stat-total').textContent     = total
   document.getElementById('stat-fat').textContent       = brl(faturamento)
   document.getElementById('stat-prod').textContent      = emProd
   document.getElementById('stat-pend').textContent      = pendentes
+  document.getElementById('stat-sinal').textContent     = comSinal
   document.getElementById('stat-entregues').textContent = entregues
   document.getElementById('stat-receber').textContent   = brl(valorAReceber)
   document.getElementById('stat-custos').textContent    = brl(custos)
@@ -239,7 +246,26 @@ function abrirDetalhesPedido(id) {
   document.getElementById('det-codigo').textContent = p.codigo || '—';
   document.getElementById('det-cliente').textContent = p.cliente_nome || '—';
   document.getElementById('det-produto').textContent = p.produto || '—';
-  document.getElementById('det-obs').textContent = p.observacao || 'Nenhuma observação.';
+  document.getElementById('det-obs').textContent = p.observacao || 'Nenhuma observação.'
+
+  const adiantado = parseFloat(p.valor_adiantado) || 0
+  const restante  = (p.total_final || 0) - adiantado
+  const detFinEl  = document.getElementById('det-financeiro')
+  if (detFinEl) {
+    detFinEl.innerHTML = `
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+        <span style="color:var(--muted); font-weight:600;">Total do pedido</span>
+        <strong>${brl(p.total_final)}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
+        <span style="color:var(--muted); font-weight:600;">Já pago</span>
+        <strong style="color:#16a34a;">${brl(adiantado)}</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; border-top:1px solid var(--border); padding-top:6px; margin-top:4px;">
+        <span style="color:var(--muted); font-weight:600;">Ainda a receber</span>
+        <strong style="color:var(--cherry-dark);">${brl(restante)}</strong>
+      </div>`
+  }
 
   const varStr = (p.itens_pedido || [])
     .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
@@ -315,6 +341,7 @@ async function abrirModalEditarPedido(id) {
   document.getElementById('pedido-status').value      = p.status_pedido || 'Aguardando confirmação'
   document.getElementById('pedido-status-pgto').value = p.status_pagamento || 'Pendente'
   document.getElementById('pedido-obs').value         = p.observacao || ''
+  document.getElementById('pedido-adiantado').value   = p.valor_adiantado || ''
 
   const list = document.getElementById('variacao-list')
   list.innerHTML = ''
@@ -416,6 +443,7 @@ async function salvarPedido(e) {
     desconto_acrescimo:  desconto,
     frete:               frete,
     total_final:         total,
+    valor_adiantado:     parseFloat(document.getElementById('pedido-adiantado').value) || 0,
     status_pedido:       document.getElementById('pedido-status').value,
     status_pagamento:    document.getElementById('pedido-status-pgto').value,
     observacao:          document.getElementById('pedido-obs').value.trim(),

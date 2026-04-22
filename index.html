@@ -145,10 +145,14 @@
       <!-- GRUPO 4: EXPECTATIVA -->
       <div class="dash-group">
         <span class="dash-group-title">Expectativa</span>
-        <div class="dash-row dash-row-2">
+        <div class="dash-row dash-row-3">
           <div class="stat-card">
-            <span class="stat-label">Aguardando Pagamento</span>
+            <span class="stat-label">Sem pagamento</span>
             <span class="stat-value" style="color: #b45309;" id="stat-pend">—</span>
+          </div>
+          <div class="stat-card" style="background: #fefce8; border-color: #fde68a;">
+            <span class="stat-label" style="color: #92400e;">Sinal recebido</span>
+            <span class="stat-value" style="color: #b45309;" id="stat-sinal">—</span>
           </div>
           <div class="stat-card" style="background: #f0fdf4; border-color: #bbf7d0;">
             <span class="stat-label" style="color: #065f46;">Total a Receber</span>
@@ -297,6 +301,11 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label>Valor já pago pelo cliente (R$)</label>
+        <input type="number" id="pedido-adiantado" placeholder="ex: 80.00 — deixe 0 se nada foi pago" min="0" step="0.01" inputmode="decimal">
+      </div>
+
       <div class="form-grid-2">
         <div class="form-group">
           <label>Status do pedido</label>
@@ -386,7 +395,8 @@
       <div id="det-variacoes" style="background: var(--pink-50); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
         </div>
       
-      <p><strong>Observações:</strong> <span id="det-obs" style="color: var(--muted);"></span></p>
+      <p style="margin-bottom:12px;"><strong>Observações:</strong> <span id="det-obs" style="color: var(--muted);"></span></p>
+      <div id="det-financeiro" style="background: var(--cherry-50); border:1px solid var(--cherry-100); border-radius:10px; padding:12px 14px; margin-bottom:8px;"></div>
     </div>
 
     <form id="form-status" onsubmit="salvarNovoStatus(event)">
