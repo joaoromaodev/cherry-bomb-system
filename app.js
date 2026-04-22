@@ -209,6 +209,15 @@ async function loadPedidos(filtroStatus = '') {
 
   pedidosCarregados = data
 
+  // Popula o filtro de produto com valores únicos
+  const produtos = [...new Set(data.map(p => p.produto).filter(Boolean))].sort()
+  const selProd  = document.getElementById('filtro-produto')
+  if (selProd) {
+    const valorAtual = selProd.value
+    selProd.innerHTML = '<option value="">Todos os produtos</option>' +
+      produtos.map(p => `<option value="${p}"${p === valorAtual ? ' selected' : ''}>${p}</option>`).join('')
+  }
+
   renderPedidos(data)
 }
 
@@ -255,8 +264,10 @@ function renderPedidos(lista) {
 }
 
 function filtrarPedidos() {
-  const busca  = (document.getElementById('busca-pedido')?.value || '').toLowerCase().trim()
-  const status = document.getElementById('filtro-status')?.value || ''
+  const busca    = (document.getElementById('busca-pedido')?.value  || '').toLowerCase().trim()
+  const produto  =  document.getElementById('filtro-produto')?.value  || ''
+  const status   =  document.getElementById('filtro-status')?.value   || ''
+  const pagamento=  document.getElementById('filtro-pagamento')?.value || ''
 
   const resultado = pedidosCarregados.filter(p => {
     const matchBusca = !busca ||
@@ -264,9 +275,11 @@ function filtrarPedidos() {
       (p.codigo       || '').toLowerCase().includes(busca) ||
       (p.produto      || '').toLowerCase().includes(busca)
 
-    const matchStatus = !status || p.status_pedido === status
+    const matchProduto   = !produto   || p.produto          === produto
+    const matchStatus    = !status    || p.status_pedido    === status
+    const matchPagamento = !pagamento || p.status_pagamento === pagamento
 
-    return matchBusca && matchStatus
+    return matchBusca && matchProduto && matchStatus && matchPagamento
   })
 
   renderPedidos(resultado)
