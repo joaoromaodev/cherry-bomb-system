@@ -23,10 +23,18 @@ function fmtData(d) {
 }
 
 function calcPreco(qtd) {
-  if (qtd < 10) return null   
-  if (qtd < 20) return 8      
-  if (qtd < 50) return 6      
-  return 5                    
+  if (produtoAtualPrecos.length > 0) {
+    const aplicaveis = produtoAtualPrecos.filter(p => qtd >= p.qtd_minima)
+    if (!aplicaveis.length) return null
+    return parseFloat(
+      aplicaveis.reduce((best, p) => p.qtd_minima > best.qtd_minima ? p : best).preco_unitario
+    )
+  }
+  // fallback global (sem produto selecionado)
+  if (qtd < 10) return null
+  if (qtd < 20) return 8
+  if (qtd < 50) return 6
+  return 5
 }
 
 function toast(msg, tipo = 'ok') {
@@ -204,13 +212,17 @@ async function loadPedidos(filtroStatus = '') {
   
   pedidosCarregados = data; 
 
- // busca adiantamentos via RPC (contorna cache do PostgREST)
-  const { data: adiantamentos } = await sb.schema(S).rpc('get_adiantamentos')
+ // busca campos extras via RPC (contorna cache do PostgREST)
+  const { data: extras } = await sb.rpc('get_campos_extras')
 
-  if (adiantamentos) {
-    const mapaAdiantados = {}
-    adiantamentos.forEach(a => { mapaAdiantados[a.pedido_id] = a.valor_adiantado })
-    data.forEach(p => { p.valor_adiantado = mapaAdiantados[p.id] || 0 })
+  if (extras) {
+    const mapaExtras = {}
+    extras.forEach(e => { mapaExtras[e.pedido_id] = e })
+    data.forEach(p => {
+      const ex = mapaExtras[p.id] || {}
+      p.valor_adiantado = ex.valor_adiantado || 0
+      p.produto_id      = ex.produto_id      || null
+    })
   }
 
   pedidosCarregados = data
@@ -333,10 +345,14 @@ function abrirDetalhesPedido(id) {
 }
 
 async function salvarAdiantadoDetalhes() {
-  const id    = document.getElementById('det-id').value
-  const valor = parseFloat(document.getElementById('det-adiantado-input').value) || 0
+  const id       = document.getElementById('det-id').value
+  const valor    = parseFloat(document.getElementById('det-adiantado-input').value) || 0
+  const pedido   = pedidosCarregados.find(x => x.id === id)
+  const prodId   = pedido?.produto_id || null
 
-  const { error } = await sb.rpc('atualizar_adiantado', { p_id: id, p_valor: valor })
+  const { error } = await sb.rpc('atualizar_pedido_extra', {
+    p_id: id, p_valor_adiantado: valor, p_produto_id: prodId
+  })
   if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
   toast('Adiantamento atualizado!')
@@ -367,24 +383,39 @@ async function salvarNovoStatus(e) {
 
 // ── Modal Novo Pedido ─────────────────────────────────────────────
 async function abrirModalPedido() {
-  const { data: clientes } = await sb.schema(S).from('clientes').select('id, nome').order('nome')
-
-  const sel = document.getElementById('pedido-cliente')
-  sel.innerHTML =
-    '<option value="">Selecione o cliente...</option>' +
-    (clientes || []).map(c =>
-      `<option value="${c.id}" data-nome="${c.nome}">${c.nome}</option>`
-    ).join('')
-
   document.getElementById('form-pedido').reset()
   document.getElementById('pedido-id').value = ''
   document.querySelector('#modal-pedido .modal-header h2').textContent = 'Novo pedido'
+  produtoAtualVariacoes = []
+  produtoAtualPrecos    = []
   document.getElementById('variacao-list').innerHTML = ''
+
+  const [resClientes, resProdutos] = await Promise.all([
+    sb.schema(S).from('clientes').select('id, nome').order('nome'),
+    sb.schema(S).from('produtos')
+      .select('*, produto_variacoes(*), produto_precos(*)')
+      .eq('ativo', true).order('nome')
+  ])
+
+  document.getElementById('pedido-cliente').innerHTML =
+    '<option value="">Selecione o cliente...</option>' +
+    (resClientes.data || []).map(c =>
+      `<option value="${c.id}" data-nome="${c.nome}">${c.nome}</option>`).join('')
+
+  if (resProdutos.data) {
+    resProdutos.data.forEach(p => {
+      const idx = produtosCarregados.findIndex(x => x.id === p.id)
+      idx >= 0 ? produtosCarregados[idx] = p : produtosCarregados.push(p)
+    })
+  }
+
+  document.getElementById('pedido-produto').innerHTML =
+    '<option value="">Selecione o produto...</option>' +
+    (resProdutos.data || []).map(p => `<option value="${p.id}">${p.nome}</option>`).join('')
 
   addVariacao()
   addVariacao()
   recalcPedido()
-
   document.getElementById('modal-pedido').classList.add('open')
 }
 
@@ -392,60 +423,108 @@ async function abrirModalEditarPedido(id) {
   const p = pedidosCarregados.find(x => x.id === id)
   if (!p) { toast('Pedido não encontrado', 'error'); return }
 
-  const { data: clientes } = await sb.schema(S).from('clientes').select('id, nome').order('nome')
-  const sel = document.getElementById('pedido-cliente')
-  sel.innerHTML =
-    '<option value="">Selecione o cliente...</option>' +
-    (clientes || []).map(c =>
-      `<option value="${c.id}" data-nome="${c.nome}">${c.nome}</option>`
-    ).join('')
+  const [resClientes, resProdutos] = await Promise.all([
+    sb.schema(S).from('clientes').select('id, nome').order('nome'),
+    sb.schema(S).from('produtos')
+      .select('*, produto_variacoes(*), produto_precos(*)')
+      .eq('ativo', true).order('nome')
+  ])
 
-  document.getElementById('pedido-id').value         = p.id
-  sel.value                                           = p.cliente_id || ''
-  document.getElementById('pedido-produto').value     = p.produto || ''
-  document.getElementById('pedido-desconto').value    = p.desconto_acrescimo || ''
-  document.getElementById('pedido-frete').value       = p.frete || ''
-  document.getElementById('pedido-status').value      = p.status_pedido || 'Aguardando confirmação'
-  document.getElementById('pedido-status-pgto').value = p.status_pagamento || 'Pendente'
-  document.getElementById('pedido-obs').value         = p.observacao || ''
-  document.getElementById('pedido-adiantado').value   = p.valor_adiantado || ''
+  document.getElementById('pedido-cliente').innerHTML =
+    '<option value="">Selecione o cliente...</option>' +
+    (resClientes.data || []).map(c =>
+      `<option value="${c.id}" data-nome="${c.nome}">${c.nome}</option>`).join('')
+
+  if (resProdutos.data) {
+    resProdutos.data.forEach(pr => {
+      const idx = produtosCarregados.findIndex(x => x.id === pr.id)
+      idx >= 0 ? produtosCarregados[idx] = pr : produtosCarregados.push(pr)
+    })
+  }
+
+  document.getElementById('pedido-produto').innerHTML =
+    '<option value="">Selecione o produto...</option>' +
+    (resProdutos.data || []).map(pr => `<option value="${pr.id}">${pr.nome}</option>`).join('')
+
+  document.getElementById('pedido-id').value            = p.id
+  document.getElementById('pedido-cliente').value       = p.cliente_id || ''
+  document.getElementById('pedido-produto').value       = p.produto_id || ''
+  document.getElementById('pedido-desconto').value      = p.desconto_acrescimo || ''
+  document.getElementById('pedido-frete').value         = p.frete || ''
+  document.getElementById('pedido-status').value        = p.status_pedido    || 'Aguardando confirmação'
+  document.getElementById('pedido-status-pgto').value   = p.status_pagamento || 'Pendente'
+  document.getElementById('pedido-obs').value           = p.observacao || ''
+  document.getElementById('pedido-adiantado').value     = p.valor_adiantado || ''
+
+  // Carrega contexto de preços do produto
+  if (p.produto_id) {
+    const prod = produtosCarregados.find(x => x.id === p.produto_id)
+    produtoAtualVariacoes = (prod?.produto_variacoes || []).sort((a,b) => a.nome.localeCompare(b.nome))
+    produtoAtualPrecos    = (prod?.produto_precos    || []).sort((a,b) => a.qtd_minima - b.qtd_minima)
+  } else {
+    produtoAtualVariacoes = []
+    produtoAtualPrecos    = []
+  }
 
   const list = document.getElementById('variacao-list')
   list.innerHTML = ''
   const itens = p.itens_pedido || []
-  if (itens.length > 0) {
-    itens.forEach(item => {
-      const div = document.createElement('div')
-      div.className = 'var-row'
-      div.innerHTML = `
-        <input type="text" placeholder="Variação" class="var-nome"
-          value="${item.variacao || ''}" oninput="recalcPedido()">
-        <input type="number" placeholder="Qtd" min="0" step="1" class="var-qtd"
-          value="${item.quantidade || 0}" oninput="recalcPedido()">
-        <button type="button" class="btn-rm-var"
-          onclick="this.parentElement.remove(); recalcPedido()">×</button>
-      `
-      list.appendChild(div)
-    })
-  } else {
-    addVariacao()
-  }
+  itens.length
+    ? itens.forEach(item => addVariacao(produtoAtualVariacoes, item.variacao, item.quantidade))
+    : addVariacao(produtoAtualVariacoes)
 
   recalcPedido()
   document.querySelector('#modal-pedido .modal-header h2').textContent = `Editar Pedido ${p.codigo || ''}`
   document.getElementById('modal-pedido').classList.add('open')
 }
 
-function addVariacao() {
+async function onProdutoChange(existingItems = []) {
+  const produtoId = document.getElementById('pedido-produto').value
+  const list      = document.getElementById('variacao-list')
+  list.innerHTML  = ''
+
+  if (produtoId) {
+    const prod = produtosCarregados.find(x => x.id === produtoId)
+    produtoAtualVariacoes = (prod?.produto_variacoes || [])
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+    produtoAtualPrecos    = (prod?.produto_precos    || [])
+      .sort((a, b) => a.qtd_minima - b.qtd_minima)
+
+    if (existingItems.length) {
+      existingItems.forEach(item => addVariacao(produtoAtualVariacoes, item.variacao, item.quantidade))
+    } else {
+      addVariacao(produtoAtualVariacoes)
+      addVariacao(produtoAtualVariacoes)
+    }
+  } else {
+    produtoAtualVariacoes = []
+    produtoAtualPrecos    = []
+    addVariacao()
+    addVariacao()
+  }
+  recalcPedido()
+}
+
+function addVariacao(variacoes = [], selectedValue = '', qtd = '') {
   const list = document.getElementById('variacao-list')
   const n    = list.children.length + 1
   const div  = document.createElement('div')
   div.className = 'var-row'
+
+  const varInput = variacoes.length
+    ? `<select class="var-nome" oninput="recalcPedido()">
+        <option value="">Selecione...</option>
+        ${variacoes.map(v =>
+          `<option value="${v.nome}" ${v.nome === selectedValue ? 'selected' : ''}>${v.nome}</option>`
+        ).join('')}
+       </select>`
+    : `<input type="text" placeholder="Variação ${n}" class="var-nome"
+        value="${selectedValue}" oninput="recalcPedido()">`
+
   div.innerHTML = `
-    <input type="text"   placeholder="Variação ${n} (ex: Vermelha)"
-      class="var-nome" oninput="recalcPedido()">
-    <input type="number" placeholder="Qtd" min="0" step="1"
-      class="var-qtd" oninput="recalcPedido()">
+    ${varInput}
+    <input type="number" placeholder="Qtd" min="0" step="1" class="var-qtd"
+      value="${qtd}" oninput="recalcPedido()">
     <button type="button" class="btn-rm-var"
       onclick="this.parentElement.remove(); recalcPedido()">×</button>
   `
@@ -464,9 +543,13 @@ function recalcPedido() {
   document.getElementById('calc-qtd').textContent =
     qtdTotal > 0 ? `${qtdTotal} un` : '—'
 
+  const minQtd = produtoAtualPrecos.length > 0
+    ? Math.min(...produtoAtualPrecos.map(p => p.qtd_minima))
+    : 10
+
   document.getElementById('calc-preco').textContent =
     qtdTotal === 0 ? '—'
-    : !preco       ? '⚠ mínimo: 10 un'
+    : !preco       ? `⚠ mínimo: ${minQtd} un`
     :                `${brl(preco)}/un`
 
   document.getElementById('calc-subtotal').textContent = subtotal > 0 ? brl(subtotal) : '—'
@@ -477,9 +560,12 @@ async function salvarPedido(e) {
   e.preventDefault()
 
   const editId      = document.getElementById('pedido-id').value
-  const sel         = document.getElementById('pedido-cliente')
-  const clienteId   = sel.value
-  const clienteNome = sel.selectedOptions[0]?.dataset.nome || ''
+  const selCli      = document.getElementById('pedido-cliente')
+  const clienteId   = selCli.value
+  const clienteNome = selCli.selectedOptions[0]?.dataset.nome || ''
+  const selProd     = document.getElementById('pedido-produto')
+  const produtoId   = selProd.value || null
+  const produtoNome = selProd.selectedOptions[0]?.textContent || ''
 
   const variacoes = Array.from(document.querySelectorAll('.var-row'))
     .map(row => ({
@@ -491,48 +577,48 @@ async function salvarPedido(e) {
   const qtdTotal = variacoes.reduce((s, v) => s + v.quantidade, 0)
   const preco    = calcPreco(qtdTotal)
 
-  if (!clienteId)       { toast('Selecione um cliente', 'error'); return }
+  const minQtd = produtoAtualPrecos.length > 0
+    ? Math.min(...produtoAtualPrecos.map(p => p.qtd_minima))
+    : 10
+
+  if (!clienteId)        { toast('Selecione um cliente', 'error'); return }
+  if (!produtoId)        { toast('Selecione um produto', 'error'); return }
   if (!variacoes.length) { toast('Adicione pelo menos uma variação com quantidade', 'error'); return }
-  if (qtdTotal < 10)    { toast('Pedido mínimo: 10 unidades', 'error'); return }
+  if (qtdTotal < minQtd) { toast(`Pedido mínimo: ${minQtd} unidades`, 'error'); return }
 
   const desconto = parseFloat(document.getElementById('pedido-desconto').value) || 0
   const frete    = parseFloat(document.getElementById('pedido-frete').value)    || 0
   const subtotal = preco * qtdTotal
   const total    = subtotal + desconto + frete
 
+  const valorAdiantado = parseFloat(document.getElementById('pedido-adiantado').value) || 0
+
   const pedidoPayload = {
     cliente_id:          clienteId,
     cliente_nome:        clienteNome,
-    produto:             document.getElementById('pedido-produto').value.trim(),
+    produto:             produtoNome,
     qtd_total:           qtdTotal,
     preco_unitario:      preco,
     subtotal:            subtotal,
     desconto_acrescimo:  desconto,
     frete:               frete,
     total_final:         total,
-    valor_adiantado:     parseFloat(document.getElementById('pedido-adiantado').value) || 0,
     status_pedido:       document.getElementById('pedido-status').value,
     status_pagamento:    document.getElementById('pedido-status-pgto').value,
     observacao:          document.getElementById('pedido-obs').value.trim(),
   }
-
-  // remove do payload principal para evitar erro de cache do PostgREST
-  const valorAdiantado = pedidoPayload.valor_adiantado || 0
-  delete pedidoPayload.valor_adiantado
 
   if (editId) {
     // ── UPDATE ──────────────────────────────────────────────────
     const { error } = await sb.schema(S).from('pedidos').update(pedidoPayload).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
-    // salva adiantado via rpc, ignorando o cache
-    await sb.schema(S).rpc('atualizar_adiantado', { p_id: editId, p_valor: valorAdiantado })
+    await sb.rpc('atualizar_pedido_extra', { p_id: editId, p_valor_adiantado: valorAdiantado, p_produto_id: produtoId })
 
     await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
-    if (variacoes.length) {
-      const itens = variacoes.map(v => ({ ...v, pedido_id: editId }))
-      await sb.schema(S).from('itens_pedido').insert(itens)
-    }
+    if (variacoes.length)
+      await sb.schema(S).from('itens_pedido').insert(variacoes.map(v => ({ ...v, pedido_id: editId })))
+
     toast('Pedido atualizado com sucesso!')
 
   } else {
@@ -542,13 +628,11 @@ async function salvarPedido(e) {
     const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
     if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
-    // salva adiantado via rpc, ignorando o cache
-    await sb.schema(S).rpc('atualizar_adiantado', { p_id: pedido.id, p_valor: valorAdiantado })
+    await sb.rpc('atualizar_pedido_extra', { p_id: pedido.id, p_valor_adiantado: valorAdiantado, p_produto_id: produtoId })
 
-    if (variacoes.length) {
-      const itens = variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
-      await sb.schema(S).from('itens_pedido').insert(itens)
-    }
+    if (variacoes.length)
+      await sb.schema(S).from('itens_pedido').insert(variacoes.map(v => ({ ...v, pedido_id: pedido.id })))
+
     toast(`Pedido ${pedido.codigo} criado!`)
   }
 
@@ -581,6 +665,208 @@ async function confirmarExclusaoPedido() {
   loadDashboard()
 }
 
+// ── Produtos ──────────────────────────────────────────────────────
+let produtosCarregados    = []
+let produtoAtualVariacoes = []
+let produtoAtualPrecos    = []
+
+async function loadProdutos() {
+  const { data, error } = await sb.schema(S).from('produtos')
+    .select('*, produto_variacoes(*), produto_precos(*)')
+    .order('nome')
+  if (error) { toast('Erro ao carregar produtos: ' + error.message, 'error'); return }
+  produtosCarregados = data || []
+  renderProdutoCards(produtosCarregados)
+}
+
+function renderProdutoCards(lista) {
+  const grid = document.getElementById('produtos-grid')
+  if (!grid) return
+
+  if (!lista.length) {
+    grid.innerHTML = `<div style="text-align:center; padding:60px 20px; color:var(--hint); grid-column:1/-1;">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px; display:block; opacity:0.3;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      <p style="font-weight:800; font-size:14px; color:var(--muted);">Nenhum produto cadastrado</p>
+      <p style="font-size:13px; margin-top:4px;">Clique em "+ Novo produto" para começar</p>
+    </div>`
+    return
+  }
+
+  grid.innerHTML = lista.map(p => {
+    const vars   = (p.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
+    const precos = (p.produto_precos    || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
+
+    const varTags  = vars.length
+      ? vars.map(v => `<span class="var-tag">${v.nome}</span>`).join('')
+      : `<span style="color:var(--hint);font-size:12px;">Sem variações</span>`
+
+    const precoStr = precos.length
+      ? precos.map(pr => `${pr.qtd_minima}un = ${brl(pr.preco_unitario)}`).join(' &middot; ')
+      : `<span style="color:var(--hint);">Sem preços</span>`
+
+    return `
+      <div class="produto-card ${p.ativo ? '' : 'produto-card-inativo'}">
+        <div class="produto-card-header">
+          <span class="produto-card-nome">${p.nome}</span>
+          <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+            <span class="badge ${p.ativo ? 'badge-green' : 'badge-gray'}">${p.ativo ? 'Ativo' : 'Inativo'}</span>
+            <div class="dropdown" id="dd-prod-${p.id}">
+              <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-prod-${p.id}')">⋮</button>
+              <div class="dropdown-content">
+                <button class="dropdown-item" onclick="abrirModalEditarProduto('${p.id}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  Editar
+                </button>
+                <button class="dropdown-item" onclick="toggleAtivoProduto('${p.id}', ${!p.ativo})">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                  ${p.ativo ? 'Desativar' : 'Ativar'}
+                </button>
+                <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirProduto('${p.id}')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                  Excluir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        ${p.descricao ? `<p class="produto-card-desc">${p.descricao}</p>` : ''}
+        <div class="produto-card-vars">${varTags}</div>
+        <div class="produto-card-precos">${precoStr}</div>
+      </div>`
+  }).join('')
+}
+
+function abrirModalProduto() {
+  document.getElementById('form-produto').reset()
+  document.getElementById('prod-id').value = ''
+  document.getElementById('prod-ativo').checked = true
+  document.getElementById('prod-variacoes-list').innerHTML = ''
+  document.getElementById('prod-precos-list').innerHTML = ''
+  document.getElementById('modal-produto-titulo').textContent = 'Novo Produto'
+  addVariacaoProduto()
+  addFaixaPreco()
+  document.getElementById('modal-produto').classList.add('open')
+}
+
+function abrirModalEditarProduto(id) {
+  const p = produtosCarregados.find(x => x.id === id)
+  if (!p) { toast('Produto não encontrado', 'error'); return }
+
+  document.getElementById('prod-id').value    = p.id
+  document.getElementById('prod-nome').value  = p.nome       || ''
+  document.getElementById('prod-desc').value  = p.descricao  || ''
+  document.getElementById('prod-ativo').checked = p.ativo !== false
+
+  const varList = document.getElementById('prod-variacoes-list')
+  varList.innerHTML = ''
+  const vars = (p.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
+  vars.length ? vars.forEach(v => addVariacaoProduto(v.nome)) : addVariacaoProduto()
+
+  const precoList = document.getElementById('prod-precos-list')
+  precoList.innerHTML = ''
+  const precos = (p.produto_precos || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
+  precos.length ? precos.forEach(pr => addFaixaPreco(pr.qtd_minima, pr.preco_unitario)) : addFaixaPreco()
+
+  document.getElementById('modal-produto-titulo').textContent = `Editar: ${p.nome}`
+  document.getElementById('modal-produto').classList.add('open')
+}
+
+function addVariacaoProduto(value = '') {
+  const div = document.createElement('div')
+  div.className = 'var-row'
+  div.style.gridTemplateColumns = '1fr 30px'
+  div.innerHTML = `
+    <input type="text" placeholder="Nome da variação (ex: Vermelho)" class="prod-var-nome" value="${value}">
+    <button type="button" class="btn-rm-var" onclick="this.parentElement.remove()">×</button>
+  `
+  document.getElementById('prod-variacoes-list').appendChild(div)
+}
+
+function addFaixaPreco(qtd = '', preco = '') {
+  const div = document.createElement('div')
+  div.className = 'preco-row'
+  div.innerHTML = `
+    <span class="preco-row-label">A partir de</span>
+    <input type="number" placeholder="1" class="preco-qtd" min="1" step="1" value="${qtd}" inputmode="numeric">
+    <span class="preco-row-label">un = R$</span>
+    <input type="number" placeholder="0,00" class="preco-val" min="0" step="0.01" inputmode="decimal" value="${preco}">
+    <button type="button" class="btn-rm-var" onclick="this.parentElement.remove()">×</button>
+  `
+  document.getElementById('prod-precos-list').appendChild(div)
+}
+
+async function salvarProduto(e) {
+  e.preventDefault()
+  const id = document.getElementById('prod-id').value
+
+  const variacoes = Array.from(document.querySelectorAll('.prod-var-nome'))
+    .map(i => i.value.trim()).filter(Boolean)
+
+  const precos = Array.from(document.querySelectorAll('.preco-row'))
+    .map(row => ({
+      qtd_minima:     parseInt(row.querySelector('.preco-qtd').value)   || 0,
+      preco_unitario: parseFloat(row.querySelector('.preco-val').value) || 0,
+    }))
+    .filter(p => p.qtd_minima > 0 && p.preco_unitario > 0)
+
+  const payload = {
+    nome:      document.getElementById('prod-nome').value.trim(),
+    descricao: document.getElementById('prod-desc').value.trim(),
+    ativo:     document.getElementById('prod-ativo').checked,
+  }
+
+  if (!payload.nome)  { toast('Nome é obrigatório', 'error'); return }
+  if (!precos.length) { toast('Adicione ao menos uma faixa de preço', 'error'); return }
+
+  let prodId = id
+
+  if (id) {
+    const { error } = await sb.schema(S).from('produtos').update(payload).eq('id', id)
+    if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
+  } else {
+    const { data, error } = await sb.schema(S).from('produtos').insert(payload).select().single()
+    if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+    prodId = data.id
+  }
+
+  await sb.schema(S).from('produto_variacoes').delete().eq('produto_id', prodId)
+  if (variacoes.length)
+    await sb.schema(S).from('produto_variacoes').insert(variacoes.map(nome => ({ produto_id: prodId, nome })))
+
+  await sb.schema(S).from('produto_precos').delete().eq('produto_id', prodId)
+  if (precos.length)
+    await sb.schema(S).from('produto_precos').insert(precos.map(p => ({ ...p, produto_id: prodId })))
+
+  toast(id ? 'Produto atualizado!' : 'Produto cadastrado!')
+  fecharModal('modal-produto')
+  loadProdutos()
+}
+
+function abrirModalExcluirProduto(id) {
+  const p = produtosCarregados.find(x => x.id === id)
+  if (!p) return
+  document.getElementById('exc-prod-id').value         = id
+  document.getElementById('exc-prod-nome').textContent = p.nome
+  document.getElementById('modal-excluir-produto').classList.add('open')
+}
+
+async function confirmarExclusaoProduto() {
+  const id = document.getElementById('exc-prod-id').value
+  if (!id) return
+  const { error } = await sb.schema(S).from('produtos').delete().eq('id', id)
+  if (error) { toast('Erro ao excluir: ' + error.message, 'error'); return }
+  toast('Produto excluído!')
+  fecharModal('modal-excluir-produto')
+  loadProdutos()
+}
+
+async function toggleAtivoProduto(id, novoStatus) {
+  const { error } = await sb.schema(S).from('produtos').update({ ativo: novoStatus }).eq('id', id)
+  if (error) { toast('Erro: ' + error.message, 'error'); return }
+  toast(novoStatus ? 'Produto ativado!' : 'Produto desativado!')
+  loadProdutos()
+}
+
 // ── Configurações ─────────────────────────────────────────────────
 let ultimaConfigTab = 'clientes'
 
@@ -598,6 +884,7 @@ function switchConfigTab(tab) {
   })
   if (tab === 'clientes')   loadClientes()
   if (tab === 'financeiro') loadLancamentos()
+  if (tab === 'produtos')   loadProdutos()
 }
 
 // ── Lançamentos Financeiros ───────────────────────────────────────
@@ -1077,6 +1364,15 @@ window.abrirModalExcluirLancamento  = abrirModalExcluirLancamento
 window.confirmarExclusaoLancamento  = confirmarExclusaoLancamento
 window.salvarLancamento             = salvarLancamento
 window.abrirModalClienteRapido      = abrirModalClienteRapido
+window.onProdutoChange              = onProdutoChange
+window.abrirModalProduto            = abrirModalProduto
+window.abrirModalEditarProduto      = abrirModalEditarProduto
+window.abrirModalExcluirProduto     = abrirModalExcluirProduto
+window.confirmarExclusaoProduto     = confirmarExclusaoProduto
+window.toggleAtivoProduto           = toggleAtivoProduto
+window.salvarProduto                = salvarProduto
+window.addVariacaoProduto           = addVariacaoProduto
+window.addFaixaPreco                = addFaixaPreco
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =

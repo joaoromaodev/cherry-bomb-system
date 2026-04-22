@@ -293,11 +293,11 @@
 
     <!-- TAB: PRODUTOS -->
     <div id="config-tab-produtos" class="config-panel" style="display:none;">
-      <div style="text-align:center; padding:60px 20px; color:var(--hint);">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 16px; display:block; opacity:0.35;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-        <p style="font-weight:800; font-size:14px; color:var(--muted);">Cadastro de Produtos</p>
-        <p style="font-size:13px; margin-top:6px;">Em breve — próxima atualização</p>
+      <div class="page-header">
+        <div></div>
+        <button class="btn-primary" onclick="abrirModalProduto()">+ Novo produto</button>
       </div>
+      <div id="produtos-grid" class="produtos-grid"></div>
     </div>
 
   </section>
@@ -348,8 +348,10 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Produto</label>
-          <input type="text" id="pedido-produto" placeholder="ex: Scrunchie veludo">
+          <label>Produto *</label>
+          <select id="pedido-produto" onchange="onProdutoChange()">
+            <option value="">Selecione o produto...</option>
+          </select>
         </div>
       </div>
 
@@ -579,6 +581,70 @@
     </div>
   </div>
 </div>
+<!-- ── Modal: Novo Produto ──────────────────────────────────────── -->
+<div id="modal-produto" class="modal" onclick="fecharSeBackdrop(event,'modal-produto')">
+  <div class="modal-box large">
+    <div class="modal-header">
+      <h2 id="modal-produto-titulo">Novo Produto</h2>
+      <button class="modal-close" onclick="fecharModal('modal-produto')">×</button>
+    </div>
+    <form id="form-produto" onsubmit="salvarProduto(event)">
+      <input type="hidden" id="prod-id">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Nome do produto *</label>
+          <input type="text" id="prod-nome" placeholder="ex: Scrunchie de Cetim" required>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <label class="toggle-wrap">
+            <input type="checkbox" id="prod-ativo" checked>
+            <span class="toggle-slider"></span>
+            <span class="toggle-label">Ativo</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Descrição</label>
+        <textarea id="prod-desc" rows="2" placeholder="Detalhes do produto..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Variações</label>
+        <div id="prod-variacoes-list"></div>
+        <button type="button" class="btn-add-var" onclick="addVariacaoProduto()">+ adicionar variação</button>
+      </div>
+      <div class="form-group">
+        <label>Faixas de Preço por Volume</label>
+        <p style="font-size:11px; color:var(--hint); font-weight:600; margin-bottom:8px;">
+          Para preço fixo sem mínimo, adicione uma faixa com qtd mínima = 1.
+        </p>
+        <div id="prod-precos-list"></div>
+        <button type="button" class="btn-add-var" onclick="addFaixaPreco()">+ adicionar faixa de preço</button>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="fecharModal('modal-produto')">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar produto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: Excluir Produto ────────────────────────────────────── -->
+<div id="modal-excluir-produto" class="modal" onclick="fecharSeBackdrop(event,'modal-excluir-produto')">
+  <div class="modal-box" style="max-width:400px; text-align:center;">
+    <h2 style="color:#991b1b; margin-bottom:12px;">Excluir Produto?</h2>
+    <p style="color:var(--muted); margin-bottom:24px; font-size:14px;">
+      Tem certeza que deseja excluir <strong><span id="exc-prod-nome"></span></strong>?<br>
+      Todas as variações e faixas de preço serão removidas.
+    </p>
+    <input type="hidden" id="exc-prod-id">
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button type="button" class="btn-secondary" onclick="fecharModal('modal-excluir-produto')">Cancelar</button>
+      <button type="button" class="btn-primary" style="background:#991b1b;" onclick="confirmarExclusaoProduto()">Sim, Excluir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal: Novo Lançamento ───────────────────────────────────── -->
 <div id="modal-lancamento" class="modal" onclick="fecharSeBackdrop(event,'modal-lancamento')">
   <div class="modal-box">
