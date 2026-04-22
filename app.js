@@ -144,7 +144,7 @@ async function loadDashboard() {
   const saldoEmCaixa = receitaRecebida - custos
 
   // Totais monetários por grupo
-  const totalVal     = pedidos.reduce((s, p) => s + (p.total_final || 0), 0)
+  const totalVal     = 0 // removido — duplica o Faturamento Bruto
   const prodVal      = pedidos.filter(p => p.status_pedido?.toLowerCase().includes('produção'))
                                .reduce((s, p) => s + (p.total_final || 0), 0)
   const entreguesVal = pedidos.filter(p => p.status_pedido === 'Entregue')
@@ -158,7 +158,7 @@ async function loadDashboard() {
                        ).reduce((s, p) => s + (parseFloat(p.valor_adiantado) || 0), 0)
 
   document.getElementById('stat-total').textContent         = total
-  document.getElementById('stat-total-val').textContent     = brl(totalVal)
+  // stat-total-val removido
   document.getElementById('stat-fat').textContent           = brl(faturamento)
   document.getElementById('stat-prod').textContent          = emProd
   document.getElementById('stat-prod-val').textContent      = brl(prodVal)
