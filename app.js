@@ -1327,9 +1327,9 @@ function toggleDropdown(id) {
   }
 }
 
-// fecha ao clicar fora de qualquer dropdown
+// fecha ao clicar fora OU ao clicar em qualquer item do dropdown
 document.addEventListener('click', function (e) {
-  if (!e.target.closest('.dropdown')) {
+  if (!e.target.closest('.dropdown') || e.target.closest('.dropdown-item')) {
     document.querySelectorAll('.dropdown-content.open')
       .forEach(el => el.classList.remove('open'))
   }
