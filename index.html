@@ -53,15 +53,17 @@
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
       <span>Pedidos</span>
     </button>
-    <button class="nav-btn" data-page="clientes">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>Clientes</span>
-    </button>
     <button class="nav-btn" data-page="compras">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
       <span>Compras</span>
     </button>
   </nav>
+  <div class="sidebar-footer">
+    <button class="nav-btn" data-page="config">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span>Configurações</span>
+    </button>
+  </div>
 </aside>
 
 <!-- ── Conteúdo principal ──────────────────────────────────────────── -->
@@ -231,27 +233,73 @@
     </div>
   </section>
 
-  <!-- CLIENTES -->
-  <section id="page-clientes" class="page">
+  <!-- CONFIGURAÇÕES -->
+  <section id="page-config" class="page">
     <div class="page-header">
-      <h1>Clientes</h1>
-      <button class="btn-primary" onclick="abrirModalCliente()">+ Novo cliente</button>
+      <h1>Configurações</h1>
     </div>
 
-    <div class="card">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th><th>Nome</th><th>Contato</th><th>CEP</th><th>Cidade</th><th>Cadastro</th><th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="clientes-tbody">
-            <tr><td colspan="6" class="empty">Carregando...</td></tr>
-          </tbody>
-        </table>
+    <div class="config-tabs">
+      <button class="config-tab active" data-tab="clientes" onclick="switchConfigTab('clientes')">Clientes</button>
+      <button class="config-tab" data-tab="financeiro" onclick="switchConfigTab('financeiro')">Financeiro</button>
+      <button class="config-tab" data-tab="produtos" onclick="switchConfigTab('produtos')">Produtos</button>
+    </div>
+
+    <!-- TAB: CLIENTES -->
+    <div id="config-tab-clientes" class="config-panel">
+      <div class="page-header">
+        <div></div>
+        <button class="btn-primary" onclick="abrirModalCliente()">+ Novo cliente</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th><th>Nome</th><th>Contato</th><th>CEP</th><th>Cidade</th><th>Cadastro</th><th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="clientes-tbody">
+              <tr><td colspan="7" class="empty">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
+
+    <!-- TAB: FINANCEIRO -->
+    <div id="config-tab-financeiro" class="config-panel" style="display:none;">
+      <div class="page-header">
+        <div>
+          <span class="page-sub">Investimentos, aportes e retiradas manuais de caixa</span>
+        </div>
+        <button class="btn-primary" onclick="abrirModalLancamento()">+ Novo lançamento</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th><th>Descrição</th><th>Tipo</th><th>Valor</th><th>Obs</th><th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="lancamentos-tbody">
+              <tr><td colspan="6" class="empty">Nenhum lançamento ainda</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: PRODUTOS -->
+    <div id="config-tab-produtos" class="config-panel" style="display:none;">
+      <div style="text-align:center; padding:60px 20px; color:var(--hint);">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 16px; display:block; opacity:0.35;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <p style="font-weight:800; font-size:14px; color:var(--muted);">Cadastro de Produtos</p>
+        <p style="font-size:13px; margin-top:6px;">Em breve — próxima atualização</p>
+      </div>
+    </div>
+
   </section>
 <section id="page-compras" class="page">
     <div class="page-header">
@@ -291,7 +339,10 @@
 
       <div class="form-grid-2">
         <div class="form-group">
-          <label>Cliente *</label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            Cliente *
+            <button type="button" class="btn-link" style="font-size:11px; font-weight:700;" onclick="abrirModalClienteRapido()">+ Novo cliente</button>
+          </label>
           <select id="pedido-cliente" required>
             <option value="">Selecione...</option>
           </select>
@@ -528,6 +579,64 @@
     </div>
   </div>
 </div>
+<!-- ── Modal: Novo Lançamento ───────────────────────────────────── -->
+<div id="modal-lancamento" class="modal" onclick="fecharSeBackdrop(event,'modal-lancamento')">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h2 id="modal-lancamento-titulo">Novo Lançamento</h2>
+      <button class="modal-close" onclick="fecharModal('modal-lancamento')">×</button>
+    </div>
+    <form id="form-lancamento" onsubmit="salvarLancamento(event)">
+      <input type="hidden" id="lanc-id">
+      <div class="form-group">
+        <label>Descrição *</label>
+        <input type="text" id="lanc-desc" placeholder="ex: Investimento inicial, Aporte pessoal..." required>
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label>Tipo *</label>
+          <select id="lanc-tipo">
+            <option value="entrada">Entrada</option>
+            <option value="saida">Saída</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Valor (R$) *</label>
+          <input type="number" id="lanc-valor" placeholder="ex: 500.00" step="0.01" min="0" inputmode="decimal" required>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Data</label>
+        <input type="date" id="lanc-data" required>
+      </div>
+      <div class="form-group">
+        <label>Observação</label>
+        <textarea id="lanc-obs" rows="2" placeholder="Detalhes do lançamento..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" onclick="fecharModal('modal-lancamento')">Cancelar</button>
+        <button type="submit" class="btn-primary">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal: Excluir Lançamento ─────────────────────────────────── -->
+<div id="modal-excluir-lancamento" class="modal" onclick="fecharSeBackdrop(event,'modal-excluir-lancamento')">
+  <div class="modal-box" style="max-width:400px; text-align:center;">
+    <h2 style="color:#991b1b; margin-bottom:12px;">Excluir Lançamento?</h2>
+    <p style="color:var(--muted); margin-bottom:24px; font-size:14px;">
+      Tem certeza que deseja excluir <strong><span id="exc-lanc-nome"></span></strong>?<br>
+      O saldo em caixa será recalculado.
+    </p>
+    <input type="hidden" id="exc-lanc-id">
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button type="button" class="btn-secondary" onclick="fecharModal('modal-excluir-lancamento')">Cancelar</button>
+      <button type="button" class="btn-primary" style="background:#991b1b;" onclick="confirmarExclusaoLancamento()">Sim, Excluir</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Modal: Excluir Cliente ───────────────────────────────────── -->
 <div id="modal-excluir-cliente" class="modal" onclick="fecharSeBackdrop(event,'modal-excluir-cliente')">
   <div class="modal-box" style="max-width: 400px; text-align: center;">
@@ -576,9 +685,9 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
     <span>Pedidos</span>
   </button>
-  <button class="bottom-nav-btn" data-page="clientes" onclick="navigate('clientes')">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    <span>Clientes</span>
+  <button class="bottom-nav-btn" data-page="config" onclick="navigate('config')">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    <span>Config</span>
   </button>
   <button class="bottom-nav-btn" data-page="compras" onclick="navigate('compras')">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>

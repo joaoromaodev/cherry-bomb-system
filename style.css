@@ -287,6 +287,49 @@ body {
   font-weight: 700;
 }
 
+/* ── Sidebar footer ──────────────────────────────────────────────── */
+.sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 8px;
+}
+
+/* ── Config Tabs ─────────────────────────────────────────────────── */
+.config-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 20px;
+  width: fit-content;
+}
+
+.config-tab {
+  padding: 8px 22px;
+  border: none;
+  background: none;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: 'Nunito', sans-serif;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.config-tab:hover { background: var(--cherry-50); color: var(--cherry); }
+
+.config-tab.active {
+  background: var(--cherry);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(163,28,46,0.25);
+}
+
+.config-panel { display: block; }
+
 /* ── Sidebar colapsada ───────────────────────────────────────────── */
 .sidebar-collapsed { width: 56px; }
 .sidebar-collapsed .brand {
@@ -304,6 +347,7 @@ body {
 .sidebar-collapsed .nav-btn span,
 .sidebar-collapsed .pill-soon { display: none; }
 .sidebar-collapsed .nav-btn svg { flex-shrink: 0; }
+.sidebar-collapsed .sidebar-footer { padding-top: 8px; }
 
 /* ══════════════════════════════════════════════
    MAIN / PÁGINAS

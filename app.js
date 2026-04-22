@@ -72,8 +72,8 @@ function navigate(pagina) {
   })
   if (pagina === 'dashboard') loadDashboard()
   if (pagina === 'pedidos')   loadPedidos()
-  if (pagina === 'clientes')  loadClientes()
   if (pagina === 'compras')   loadCompras()
+  if (pagina === 'config')    loadConfig()
 }
 
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -95,21 +95,27 @@ async function loadDashboard() {
     dataCorte = new Date(agora.getFullYear(), agora.getMonth() - 2, 1).toISOString()
   }
 
-  let qPedidos = sb.schema(S).from('pedidos').select('*')
-  let qCompras = sb.schema(S).from('compras').select('*')
+  let qPedidos     = sb.schema(S).from('pedidos').select('*')
+  let qCompras     = sb.schema(S).from('compras').select('*')
+  let qLancamentos = sb.schema(S).from('lancamentos').select('*')
 
   if (dataCorte) {
-    qPedidos = qPedidos.gte('created_at', dataCorte)
-    qCompras = qCompras.gte('created_at', dataCorte)
+    qPedidos     = qPedidos.gte('created_at', dataCorte)
+    qCompras     = qCompras.gte('created_at', dataCorte)
+    qLancamentos = qLancamentos.gte('created_at', dataCorte)
   }
 
-  const [resPedidos, resCompras] = await Promise.all([qPedidos, qCompras])
+  const [resPedidos, resCompras, resLancamentos] = await Promise.all([qPedidos, qCompras, qLancamentos])
 
   if (resPedidos.error) { toast('Erro ao carregar pedidos: ' + resPedidos.error.message, 'error'); return }
   if (resCompras.error) { toast('Erro ao carregar compras: ' + resCompras.error.message, 'error'); return }
 
-  const todosPedidos = resPedidos.data || []
-  const compras      = resCompras.data || []
+  const todosPedidos = resPedidos.data  || []
+  const compras      = resCompras.data  || []
+  const lancamentos  = resLancamentos.data || []
+
+  const entradasManuais = lancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + (parseFloat(l.valor) || 0), 0)
+  const saidasManuais   = lancamentos.filter(l => l.tipo === 'saida').reduce((s, l)   => s + (parseFloat(l.valor) || 0), 0)
 
   // Exclui pedidos em fase de negociação de todos os cálculos
   const pedidos = todosPedidos.filter(p => p.status_pedido !== 'Aguardando confirmação')
@@ -147,7 +153,7 @@ async function loadDashboard() {
 
   const custos       = compras.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
   const lucro        = faturamento - custos
-  const saldoEmCaixa = receitaRecebida - custos
+  const saldoEmCaixa = receitaRecebida - custos + entradasManuais - saidasManuais
 
   // Totais monetários por grupo
   const totalVal     = 0 // removido — duplica o Faturamento Bruto
@@ -575,6 +581,137 @@ async function confirmarExclusaoPedido() {
   loadDashboard()
 }
 
+// ── Configurações ─────────────────────────────────────────────────
+let ultimaConfigTab = 'clientes'
+
+function loadConfig() {
+  switchConfigTab(ultimaConfigTab)
+}
+
+function switchConfigTab(tab) {
+  ultimaConfigTab = tab
+  document.querySelectorAll('.config-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tab)
+  })
+  document.querySelectorAll('.config-panel').forEach(p => {
+    p.style.display = p.id === `config-tab-${tab}` ? 'block' : 'none'
+  })
+  if (tab === 'clientes')   loadClientes()
+  if (tab === 'financeiro') loadLancamentos()
+}
+
+// ── Lançamentos Financeiros ───────────────────────────────────────
+let lancamentosCarregados = []
+
+async function loadLancamentos() {
+  const { data, error } = await sb.schema(S).from('lancamentos')
+    .select('*').order('data', { ascending: false })
+  if (error) { toast('Erro ao carregar lançamentos: ' + error.message, 'error'); return }
+
+  lancamentosCarregados = data
+
+  document.getElementById('lancamentos-tbody').innerHTML =
+    data.length
+      ? data.map(l => `
+          <tr>
+            <td class="td-secondary">${fmtData(l.data)}</td>
+            <td><strong>${l.descricao}</strong></td>
+            <td>${l.tipo === 'entrada'
+              ? '<span class="badge badge-green">Entrada</span>'
+              : '<span class="badge badge-red">Saída</span>'}</td>
+            <td style="font-weight:800; color:${l.tipo === 'entrada' ? 'var(--cherry-dark)' : '#991b1b'};">
+              ${l.tipo === 'entrada' ? '+' : '−'} ${brl(l.valor)}
+            </td>
+            <td class="td-secondary">${l.observacao || '—'}</td>
+            <td>
+              <div class="dropdown" id="dd-lanc-${l.id}">
+                <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-lanc-${l.id}')">⋮</button>
+                <div class="dropdown-content">
+                  <button class="dropdown-item" onclick="abrirModalEditarLancamento('${l.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Editar
+                  </button>
+                  <button class="dropdown-item dropdown-item-danger" onclick="abrirModalExcluirLancamento('${l.id}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6m4-6v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </td>
+          </tr>`).join('')
+      : '<tr><td colspan="6" class="empty">Nenhum lançamento registrado ainda</td></tr>'
+}
+
+function abrirModalLancamento() {
+  document.getElementById('form-lancamento').reset()
+  document.getElementById('lanc-id').value   = ''
+  document.getElementById('lanc-data').value = new Date().toISOString().split('T')[0]
+  document.getElementById('modal-lancamento-titulo').textContent = 'Novo Lançamento'
+  document.getElementById('modal-lancamento').classList.add('open')
+}
+
+function abrirModalEditarLancamento(id) {
+  const l = lancamentosCarregados.find(x => x.id === id)
+  if (!l) { toast('Lançamento não encontrado', 'error'); return }
+
+  document.getElementById('lanc-id').value    = l.id
+  document.getElementById('lanc-desc').value  = l.descricao  || ''
+  document.getElementById('lanc-tipo').value  = l.tipo       || 'entrada'
+  document.getElementById('lanc-valor').value = l.valor      || 0
+  document.getElementById('lanc-data').value  = l.data ? l.data.split('T')[0] : ''
+  document.getElementById('lanc-obs').value   = l.observacao || ''
+
+  document.getElementById('modal-lancamento-titulo').textContent = `Editar: ${l.descricao}`
+  document.getElementById('modal-lancamento').classList.add('open')
+}
+
+function abrirModalExcluirLancamento(id) {
+  const l = lancamentosCarregados.find(x => x.id === id)
+  if (!l) return
+  document.getElementById('exc-lanc-id').value          = id
+  document.getElementById('exc-lanc-nome').textContent  = l.descricao
+  document.getElementById('modal-excluir-lancamento').classList.add('open')
+}
+
+async function confirmarExclusaoLancamento() {
+  const id = document.getElementById('exc-lanc-id').value
+  if (!id) return
+  const { error } = await sb.schema(S).from('lancamentos').delete().eq('id', id)
+  if (error) { toast('Erro ao excluir: ' + error.message, 'error'); return }
+  toast('Lançamento excluído!')
+  fecharModal('modal-excluir-lancamento')
+  loadLancamentos()
+  loadDashboard()
+}
+
+async function salvarLancamento(e) {
+  e.preventDefault()
+  const id = document.getElementById('lanc-id').value
+  const payload = {
+    descricao:  document.getElementById('lanc-desc').value.trim(),
+    tipo:       document.getElementById('lanc-tipo').value,
+    valor:      parseFloat(document.getElementById('lanc-valor').value) || 0,
+    data:       document.getElementById('lanc-data').value,
+    observacao: document.getElementById('lanc-obs').value.trim(),
+  }
+  if (!payload.descricao || payload.valor <= 0) { toast('Preencha descrição e valor válido', 'error'); return }
+
+  let error
+  if (id) {
+    const res = await sb.schema(S).from('lancamentos').update(payload).eq('id', id)
+    error = res.error
+  } else {
+    const res = await sb.schema(S).from('lancamentos').insert(payload)
+    error = res.error
+  }
+  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+
+  toast(id ? 'Lançamento atualizado!' : 'Lançamento registrado!')
+  fecharModal('modal-lancamento')
+  loadLancamentos()
+  loadDashboard()
+}
+
 // ── Clientes ──────────────────────────────────────────────────────
 let clientesCarregados = []
 
@@ -618,6 +755,10 @@ function abrirModalCliente() {
   document.getElementById('cli-id').value = ''
   document.getElementById('modal-cliente-titulo').textContent = 'Novo cliente'
   document.getElementById('modal-cliente').classList.add('open')
+}
+
+function abrirModalClienteRapido() {
+  abrirModalCliente()
 }
 
 function abrirModalEditarCliente(id) {
@@ -697,6 +838,18 @@ async function salvarCliente(e) {
 
   fecharModal('modal-cliente')
   loadClientes()
+
+  // Se o modal de pedido estiver aberto, atualiza o select de clientes
+  if (document.getElementById('modal-pedido').classList.contains('open')) {
+    const { data: clientes2 } = await sb.schema(S).from('clientes').select('id, nome').order('nome')
+    const sel = document.getElementById('pedido-cliente')
+    if (sel && clientes2) {
+      const valorAtual = sel.value
+      sel.innerHTML = '<option value="">Selecione o cliente...</option>' +
+        clientes2.map(c => `<option value="${c.id}" data-nome="${c.nome}">${c.nome}</option>`).join('')
+      sel.value = valorAtual
+    }
+  }
 }
 
 // ── Compras / Custos ──────────────────────────────────────────────
@@ -915,8 +1068,15 @@ window.confirmarExclusaoCliente = confirmarExclusaoCliente
 window.toggleSidebar            = toggleSidebar
 window.toggleDropdown           = toggleDropdown
 window.filtrarPedidos             = filtrarPedidos
-window.salvarAdiantadoDetalhes    = salvarAdiantadoDetalhes
-window.toggleValores              = toggleValores
+window.salvarAdiantadoDetalhes      = salvarAdiantadoDetalhes
+window.toggleValores                = toggleValores
+window.switchConfigTab              = switchConfigTab
+window.abrirModalLancamento         = abrirModalLancamento
+window.abrirModalEditarLancamento   = abrirModalEditarLancamento
+window.abrirModalExcluirLancamento  = abrirModalExcluirLancamento
+window.confirmarExclusaoLancamento  = confirmarExclusaoLancamento
+window.salvarLancamento             = salvarLancamento
+window.abrirModalClienteRapido      = abrirModalClienteRapido
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =
