@@ -756,6 +756,7 @@ function abrirModalEditarProduto(id) {
   document.getElementById('prod-nome').value  = p.nome       || ''
   document.getElementById('prod-desc').value  = p.descricao  || ''
   document.getElementById('prod-ativo').checked = p.ativo !== false
+  document.getElementById('toggle-ativo-label').textContent = p.ativo !== false ? 'Ativo' : 'Inativo'
 
   const varList = document.getElementById('prod-variacoes-list')
   varList.innerHTML = ''
