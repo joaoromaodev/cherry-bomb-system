@@ -51,10 +51,10 @@ function badgePedido(status) {
 
 function badgePagto(status) {
   const mapa = {
-    'Pendente':       'badge-gray',
-    '50% pago':       'badge-blue',
-    'Pago integral':  'badge-green',
-    'Reembolsado':    'badge-red',
+    'Pendente':      'badge-gray',
+    'Pago parcial':  'badge-blue',
+    'Pago integral': 'badge-green',
+    'Reembolsado':   'badge-red',
   }
   return `<span class="badge ${mapa[status] || 'badge-gray'}">${status || '—'}</span>`
 }
@@ -119,8 +119,8 @@ async function loadDashboard() {
 
   // Receita REAL: soma dos valores já adiantados + pedidos pagos integralmente
   const receitaRecebida = pedidos.reduce((s, p) => {
-    if (p.status_pagamento === 'Reembolsado') return s
-    if (p.status_pagamento === 'Pago integral') return s + (p.total_final || 0)
+    if (p.status_pagamento === 'Reembolsado')    return s
+    if (p.status_pagamento === 'Pago integral')  return s + (p.total_final || 0)
     return s + (parseFloat(p.valor_adiantado) || 0)
   }, 0)
 
@@ -795,6 +795,36 @@ async function salvarCompra(e) {
   loadDashboard() 
 }
 
+// ── Ocultar valores ───────────────────────────────────────────────
+const IDS_VALORES = [
+  'stat-caixa', 'stat-fat', 'stat-custos', 'stat-lucro',
+  'stat-receber', 'stat-total-val', 'stat-prod-val',
+  'stat-pend-val', 'stat-sinal-val', 'stat-entregues-val'
+]
+
+let valoresOcultos = false
+
+function toggleValores() {
+  valoresOcultos = !valoresOcultos
+
+  IDS_VALORES.forEach(id => {
+    const el = document.getElementById(id)
+    if (el) el.classList.toggle('valor-oculto', valoresOcultos)
+  })
+
+  const btn  = document.getElementById('btn-eye')
+  const icon = document.getElementById('eye-icon')
+
+  btn.classList.toggle('active', valoresOcultos)
+
+  icon.innerHTML = valoresOcultos
+    ? `<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>
+       <path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>
+       <line x1="1" y1="1" x2="23" y2="23"/>`
+    : `<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+       <circle cx="12" cy="12" r="3"/>`
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('sidebar-collapsed')
@@ -866,6 +896,7 @@ window.toggleSidebar            = toggleSidebar
 window.toggleDropdown           = toggleDropdown
 window.filtrarPedidos             = filtrarPedidos
 window.salvarAdiantadoDetalhes    = salvarAdiantadoDetalhes
+window.toggleValores              = toggleValores
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =

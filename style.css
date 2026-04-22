@@ -660,6 +660,40 @@ tr:hover td      { background: var(--cherry-50); transition: background 0.1s; }
 
 .periodo-select:focus { border-color: var(--cherry); }
 
+/* ── Botão ocultar valores ───────────────────────────────────────── */
+.btn-eye {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.btn-eye:hover {
+  background: var(--cherry-50);
+  color: var(--cherry);
+  border-color: var(--cherry-200);
+}
+
+.btn-eye.active {
+  background: var(--cherry-50);
+  color: var(--cherry);
+  border-color: var(--cherry);
+}
+
+/* Classe que oculta valores monetários */
+.valor-oculto {
+  filter: blur(8px);
+  user-select: none;
+  transition: filter 0.2s;
+}
+
 .filter-bar select {
   font-size: 13px;
   font-family: 'Nunito', sans-serif;
