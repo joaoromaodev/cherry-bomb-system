@@ -1253,6 +1253,534 @@ tr:hover td      { background: var(--cherry-50); transition: background 0.1s; }
 .dropdown-item-danger:hover { background: var(--danger-bg); }
 
 /* ══════════════════════════════════════════════
+   TEMPLATES DE MENSAGENS
+══════════════════════════════════════════════ */
+
+.tmpl-legend {
+  background: var(--cherry-50);
+  border: 1px solid var(--cherry-100);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.tmpl-legend-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--cherry-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 10px;
+}
+
+.tmpl-legend-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tmpl-tag {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--cherry-200);
+  border-radius: 6px;
+  padding: 3px 9px;
+}
+
+.tmpl-tag code {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  color: var(--cherry-dark);
+  font-weight: 700;
+}
+
+.tmpl-form { display: flex; flex-direction: column; gap: 18px; }
+
+.tmpl-item { display: flex; flex-direction: column; gap: 5px; }
+
+.tmpl-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.tmpl-hint {
+  font-size: 11.5px;
+  color: var(--hint);
+  font-weight: 600;
+}
+
+.tmpl-textarea {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--surface);
+  resize: vertical;
+  outline: none;
+  line-height: 1.6;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.tmpl-textarea:focus {
+  border-color: var(--cherry);
+  box-shadow: 0 0 0 3px rgba(163,28,46,0.10);
+}
+
+.tmpl-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* ══════════════════════════════════════════════
+   MODAL DETALHES — FINANCEIRO + COMUNICAÇÃO
+══════════════════════════════════════════════ */
+
+.det-financeiro-block {
+  background: var(--cherry-50);
+  border: 1px solid var(--cherry-100);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.det-fin-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.det-fin-row span:last-child { color: var(--text); font-weight: 700; }
+
+.det-fin-row.total {
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--cherry-200);
+}
+
+.det-fin-row.total span:first-child { color: var(--text); font-weight: 800; font-size: 14px; }
+.det-fin-row.total span:last-child  { color: var(--cherry-dark); font-weight: 800; font-size: 16px; }
+
+.det-fin-row.receber span:last-child { color: var(--cherry-dark); font-weight: 800; }
+.det-fin-row.pago    span:last-child { color: #16a34a; font-weight: 700; }
+
+.det-fin-divider {
+  border: none;
+  border-top: 1px dashed var(--cherry-200);
+  margin: 8px 0;
+}
+
+/* ══════════════════════════════════════════════
+   GARGALOS OPERACIONAIS
+══════════════════════════════════════════════ */
+
+.gargalos-secao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.gargalo-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.gargalo-card-vermelho {
+  background: #fff1f2;
+  border-color: #fecdd3;
+  color: #9f1239;
+}
+
+.gargalo-card-amarelo {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+.gargalo-card-fogo {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.gargalos-empty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--hint);
+  padding: 2px 0 6px;
+}
+
+.gargalos-empty svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.gargalo-icone {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.gargalo-texto { flex: 1; }
+
+.gargalo-titulo {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.gargalo-desc {
+  font-size: 12px;
+  opacity: 0.85;
+  font-weight: 600;
+}
+
+.gargalo-badge {
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 800;
+  min-width: 32px;
+  text-align: right;
+  align-self: center;
+}
+
+/* ══════════════════════════════════════════════
+   CALCULADORA DE PRECIFICAÇÃO
+══════════════════════════════════════════════ */
+
+.calc-prec-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .calc-prec-layout { grid-template-columns: 340px 1fr; align-items: start; }
+}
+
+.calc-prec-resultados {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.calc-prec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.calc-prec-card-titulo {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 14px;
+}
+
+/* ── Card hero — Preço de Varejo ─────────────────────────────────── */
+.calc-prec-card-hero {
+  background: linear-gradient(135deg, var(--cherry-dark) 0%, var(--cherry) 100%);
+  border: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.calc-prec-card-hero::before {
+  content: '';
+  position: absolute;
+  right: -20px; top: -20px;
+  width: 90px; height: 90px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+}
+
+.cp-hero-valor {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.cp-hero-sub {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Linhas de resultado ─────────────────────────────────────────── */
+.cp-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom: 1px solid #faf0f3;
+}
+
+.cp-result-row:last-child { border-bottom: none; }
+
+.cp-result-row strong {
+  color: var(--text);
+  font-weight: 800;
+  font-size: 13.5px;
+}
+
+.cp-result-total {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1.5px solid var(--border);
+  border-bottom: none;
+}
+
+.cp-result-total strong {
+  color: var(--cherry-dark);
+  font-size: 15px;
+}
+
+/* ── Aviso ───────────────────────────────────────────────────────── */
+.calc-prec-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.calc-prec-aviso svg { flex-shrink: 0; margin-top: 1px; }
+
+/* ── Histórico do cliente ────────────────────────────────────────── */
+.cli-historico {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1.5px solid var(--border);
+}
+
+.cli-historico-titulo {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 10px;
+}
+
+.cli-historico-lista {
+  max-height: 220px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cli-historico-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.cli-historico-item:hover {
+  background: var(--cherry-50);
+  border-color: var(--cherry-200);
+}
+
+.cli-historico-data  { color: var(--muted); font-weight: 600; white-space: nowrap; flex-shrink: 0; }
+.cli-historico-prod  { color: var(--text);  font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cli-historico-valor { color: var(--cherry-dark); font-weight: 800; white-space: nowrap; flex-shrink: 0; }
+
+.cli-historico-vazio {
+  text-align: center;
+  color: var(--hint);
+  font-size: 13px;
+  font-weight: 700;
+  padding: 20px 0;
+}
+
+/* ── Bloco de gestão de status ───────────────────────────────────── */
+.det-status-block {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 4px;
+}
+
+.det-status-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 14px;
+}
+
+.det-status-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Seção genérica ──────────────────────────────────────────────── */
+.det-section {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.det-section-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+
+/* ── Botões de comunicação ───────────────────────────────────────── */
+.det-comm-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 400px) {
+  .det-comm-btns { grid-template-columns: 1fr; }
+}
+
+.det-comm-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.det-comm-btn:hover {
+  background: var(--cherry-50);
+  border-color: var(--cherry-200);
+  color: var(--cherry-dark);
+}
+
+/* ── Preview da mensagem ─────────────────────────────────────────── */
+.det-msg-preview {
+  margin-top: 12px;
+  background: #f8f4f6;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.det-msg-texto {
+  padding: 12px 14px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  margin: 0;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.det-msg-actions {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.det-msg-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: none;
+  background: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.det-msg-btn + .det-msg-btn {
+  border-left: 1px solid var(--border);
+}
+
+.det-msg-btn-copy { color: var(--muted); }
+.det-msg-btn-copy:hover { background: var(--cherry-50); color: var(--cherry-dark); }
+
+.det-msg-btn-wpp  { color: #16a34a; }
+.det-msg-btn-wpp:hover { background: #f0fdf4; }
+
+/* ══════════════════════════════════════════════
    SCROLLBAR
 ══════════════════════════════════════════════ */
 

@@ -195,6 +195,105 @@ async function loadDashboard() {
   document.getElementById('stat-caixa').textContent         = brl(saldoEmCaixa)
 
   // tabela de recentes removida no redesign — bloco limpo
+  verificarGargalos(todosPedidos)
+}
+
+// ── Gargalos Operacionais ─────────────────────────────────────────
+function verificarGargalos(todosPedidos) {
+  const secao = document.getElementById('dashboard-gargalos')
+  if (!secao) return
+
+  const hoje    = new Date()
+  hoje.setHours(0, 0, 0, 0)
+
+  function diasDesde(dataStr) {
+    if (!dataStr) return 0
+    const d = new Date(dataStr)
+    d.setHours(0, 0, 0, 0)
+    return Math.floor((hoje - d) / (1000 * 60 * 60 * 24))
+  }
+
+  // ── Alerta 1: Orçamentos parados (Aguardando confirmação > 3 dias)
+  const orcamentosParados = todosPedidos.filter(p =>
+    p.status_pedido === 'Aguardando confirmação' &&
+    diasDesde(p.created_at) > 3
+  )
+
+  // ── Alerta 2: Pagamento pendente > 2 dias
+  const pagamentosPendentes = todosPedidos.filter(p =>
+    p.status_pagamento === 'Pendente' &&
+    p.status_pedido !== 'Aguardando confirmação' &&
+    p.status_pedido !== 'Cancelado' &&
+    diasDesde(p.created_at) > 2
+  )
+
+  // ── Alerta 3: Prazo de produção estourado (data_previsao < hoje)
+  const atrasosProducao = todosPedidos.filter(p => {
+    if (!p.data_previsao) return false
+    if (!['Em produção', 'Pronto para envio'].includes(p.status_pedido)) return false
+    const previsao = new Date(p.data_previsao + 'T12:00:00')
+    previsao.setHours(0, 0, 0, 0)
+    return previsao < hoje
+  })
+
+  const alertas = []
+
+  if (orcamentosParados.length > 0) {
+    const plural = orcamentosParados.length > 1
+    alertas.push({
+      tipo:   'vermelho',
+      icone:  '🔴',
+      titulo: `${orcamentosParados.length} orçamento${plural ? 's' : ''} parado${plural ? 's'  : ''}`,
+      desc:   `${plural ? 'Pedidos estão' : 'Pedido está'} em "Aguardando confirmação" há mais de 3 dias. Hora de chamar as clientes!`,
+      qtd:    orcamentosParados.length,
+    })
+  }
+
+  if (pagamentosPendentes.length > 0) {
+    const plural = pagamentosPendentes.length > 1
+    alertas.push({
+      tipo:   'amarelo',
+      icone:  '🟡',
+      titulo: `${pagamentosPendentes.length} pagamento${plural ? 's' : ''} pendente${plural ? 's' : ''}`,
+      desc:   `${plural ? 'Pedidos confirmados estão' : 'Pedido confirmado está'} sem pagamento há mais de 2 dias.`,
+      qtd:    pagamentosPendentes.length,
+    })
+  }
+
+  if (atrasosProducao.length > 0) {
+    const plural = atrasosProducao.length > 1
+    alertas.push({
+      tipo:   'fogo',
+      icone:  '🔥',
+      titulo: `${atrasosProducao.length} prazo${plural ? 's' : ''} estourado${plural ? 's' : ''}`,
+      desc:   `${plural ? 'Pedidos em produção ultrapassaram' : 'Pedido em produção ultrapassou'} a previsão de envio.`,
+      qtd:    atrasosProducao.length,
+    })
+  }
+
+  if (alertas.length === 0) {
+    secao.style.display = 'flex'
+    secao.innerHTML = `
+      <div class="gargalos-empty">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Operação em dia. Nenhum gargalo detectado.
+      </div>`
+    return
+  }
+
+  secao.style.display = 'flex'
+  secao.innerHTML = alertas.map(a => `
+    <div class="gargalo-card gargalo-card-${a.tipo}">
+      <span class="gargalo-icone">${a.icone}</span>
+      <div class="gargalo-texto">
+        <p class="gargalo-titulo">${a.titulo}</p>
+        <p class="gargalo-desc">${a.desc}</p>
+      </div>
+      <span class="gargalo-badge">${a.qtd}</span>
+    </div>
+  `).join('')
 }
 
 // ── Pedidos — listagem ────────────────────────────────────────────
@@ -220,8 +319,10 @@ async function loadPedidos(filtroStatus = '') {
     extras.forEach(e => { mapaExtras[e.pedido_id] = e })
     data.forEach(p => {
       const ex = mapaExtras[p.id] || {}
-      p.valor_adiantado = ex.valor_adiantado || 0
-      p.produto_id      = ex.produto_id      || null
+      p.valor_adiantado  = ex.valor_adiantado  || 0
+      p.produto_id       = ex.produto_id       || null
+      p.data_previsao    = ex.data_previsao    || null
+      p.codigo_rastreio  = ex.codigo_rastreio  || null
     })
   }
 
@@ -305,43 +406,301 @@ function filtrarPedidos() {
 
 // ── Pedido — atualizar status (edição rápida) ─────────────────────
 function abrirDetalhesPedido(id) {
-  const p = pedidosCarregados.find(x => x.id === id);
-  if(!p) return;
+  const p = pedidosCarregados.find(x => x.id === id)
+  if (!p) return
 
-  document.getElementById('det-id').value = p.id;
-  document.getElementById('det-codigo').textContent = p.codigo || '—';
-  document.getElementById('det-cliente').textContent = p.cliente_nome || '—';
-  document.getElementById('det-produto').textContent = p.produto || '—';
-  document.getElementById('det-obs').textContent = p.observacao || 'Nenhuma observação.'
+  document.getElementById('det-id').value             = p.id
+  document.getElementById('det-codigo').textContent   = p.codigo || '—'
+  document.getElementById('det-cliente').textContent  = p.cliente_nome || '—'
+  document.getElementById('det-produto').textContent  = p.produto || '—'
+  document.getElementById('det-obs').textContent      = p.observacao || 'Nenhuma observação.'
 
-  const adiantado = parseFloat(p.valor_adiantado) || 0
-  const restante  = (p.total_final || 0) - adiantado
-  const detFinEl  = document.getElementById('det-financeiro')
-  if (detFinEl) {
-    detFinEl.innerHTML = `
-      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-        <span style="color:var(--muted); font-weight:600;">Total do pedido</span>
-        <strong>${brl(p.total_final)}</strong>
-      </div>
-      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px;">
-        <span style="color:var(--muted); font-weight:600;">Já pago</span>
-        <strong style="color:#16a34a;">${brl(adiantado)}</strong>
-      </div>
-      <div style="display:flex; justify-content:space-between; font-size:13px; border-top:1px solid var(--border); padding-top:6px; margin-top:4px;">
-        <span style="color:var(--muted); font-weight:600;">Ainda a receber</span>
-        <strong style="color:var(--cherry-dark);">${brl(restante)}</strong>
-      </div>`
-  }
+  // ── Bloco financeiro detalhado ──────────────────────────────────
+  const subtotal  = parseFloat(p.subtotal)            || 0
+  const frete     = parseFloat(p.frete)               || 0
+  const desconto  = parseFloat(p.desconto_acrescimo)  || 0
+  const total     = parseFloat(p.total_final)         || 0
+  const adiantado = parseFloat(p.valor_adiantado)     || 0
+  const restante  = total - adiantado
 
+  const descontoLabel = desconto < 0 ? 'Desconto' : desconto > 0 ? 'Acréscimo' : null
+  const descontoStr   = desconto < 0 ? `− ${brl(Math.abs(desconto))}` : `+ ${brl(desconto)}`
+
+  document.getElementById('det-financeiro').innerHTML = `
+    <div class="det-fin-row">
+      <span>Subtotal dos itens</span>
+      <span>${brl(subtotal)}</span>
+    </div>
+    ${frete > 0 ? `
+    <div class="det-fin-row">
+      <span>Frete</span>
+      <span>+ ${brl(frete)}</span>
+    </div>` : ''}
+    ${descontoLabel ? `
+    <div class="det-fin-row">
+      <span>${descontoLabel}</span>
+      <span>${descontoStr}</span>
+    </div>` : ''}
+    <div class="det-fin-row total">
+      <span>Total do pedido</span>
+      <span>${brl(total)}</span>
+    </div>
+    <hr class="det-fin-divider">
+    <div class="det-fin-row pago">
+      <span>Valor pago</span>
+      <span>${brl(adiantado)}</span>
+    </div>
+    <div class="det-fin-row receber">
+      <span>Ainda a receber</span>
+      <span>${brl(restante)}</span>
+    </div>
+  `
+
+  // ── Variações ───────────────────────────────────────────────────
   const varStr = (p.itens_pedido || [])
     .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
-    .join('<br>');
-  document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.';
+    .join('<br>')
+  document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.'
 
-  document.getElementById('det-status-pedido').value = p.status_pedido;
-  document.getElementById('det-status-pagamento').value = p.status_pagamento;
+  document.getElementById('det-adiantado-input').value      = adiantado || ''
+  document.getElementById('det-status-pedido').value        = p.status_pedido    || 'Aguardando confirmação'
+  document.getElementById('det-status-pagamento').value     = p.status_pagamento || 'Pendente'
+  document.getElementById('det-data-previsao').value        = p.data_previsao    ? p.data_previsao.split('T')[0] : ''
+  document.getElementById('det-codigo-rastreio').value      = p.codigo_rastreio  || ''
 
-  document.getElementById('modal-detalhes').classList.add('open');
+  // Visibilidade condicional dos campos de status
+  onDetStatusChange(p.status_pedido || 'Aguardando confirmação')
+
+  // Reseta preview de mensagem
+  document.getElementById('det-msg-preview').style.display = 'none'
+  document.getElementById('det-msg-texto').textContent     = ''
+
+  document.getElementById('modal-detalhes').classList.add('open')
+}
+
+// ── Visibilidade condicional no modal de detalhes ─────────────────
+function onDetStatusChange(statusValue) {
+  const comPrazo   = ['Em produção', 'Pronto para envio', 'Pago parcial', 'Pago integral', 'Entregue']
+  const comRastreio = ['Enviado', 'Entregue']
+
+  const cPrev = document.getElementById('det-container-previsao')
+  const cRast = document.getElementById('det-container-rastreio')
+
+  if (cPrev) {
+    const mostrarPrev = comPrazo.includes(statusValue)
+    cPrev.style.display = mostrarPrev ? 'block' : 'none'
+    if (!mostrarPrev) document.getElementById('det-data-previsao').value = ''
+  }
+
+  if (cRast) {
+    const mostrarRast = comRastreio.includes(statusValue)
+    cRast.style.display = mostrarRast ? 'block' : 'none'
+    if (!mostrarRast) document.getElementById('det-codigo-rastreio').value = ''
+  }
+}
+
+// ── Calculadora de Precificação ───────────────────────────────────
+function calcularPrecificacao() {
+  const material      = parseFloat(document.getElementById('cp-material')?.value)        || 0
+  const tempo         = parseFloat(document.getElementById('cp-tempo')?.value)           || 0
+  const hora          = parseFloat(document.getElementById('cp-hora')?.value)            || 0
+  const margem        = parseFloat(document.getElementById('cp-margem')?.value)          || 0
+  const margemAtacado = parseFloat(document.getElementById('cp-margem-atacado')?.value)  || 0
+
+  const custoTempo  = (tempo / 60) * hora
+  const custoTotal  = material + custoTempo
+
+  // Preço de varejo: custo / (1 - margem/100)
+  const fatorVarejo  = margem >= 100 ? null : 1 - (margem / 100)
+  const precoVarejo  = fatorVarejo ? custoTotal / fatorVarejo : null
+
+  // Preço de atacado
+  const fatorAtacado = margemAtacado >= 100 ? null : 1 - (margemAtacado / 100)
+  const precoAtacado = fatorAtacado && custoTotal > 0 ? custoTotal / fatorAtacado : null
+
+  // Desconto máximo: quanto pode descontar do varejo sem perder (= preço varejo - custo)
+  const descontoMax  = precoVarejo ? precoVarejo - custoTotal : null
+
+  const lucroVarejo  = precoVarejo ? precoVarejo - custoTotal : null
+  const pctLucro     = custoTotal > 0 && lucroVarejo ? (lucroVarejo / precoVarejo * 100) : null
+
+  // ── Atualiza DOM ────────────────────────────────────────────────
+  document.getElementById('cp-out-material').textContent    = material > 0   ? brl(material)   : '—'
+  document.getElementById('cp-out-tempo').textContent       = custoTempo > 0 ? brl(custoTempo) : '—'
+  document.getElementById('cp-out-custo-total').textContent = custoTotal > 0 ? brl(custoTotal) : '—'
+
+  document.getElementById('cp-out-varejo').textContent      = precoVarejo  ? brl(precoVarejo)  : '—'
+  document.getElementById('cp-out-atacado').textContent     = precoAtacado ? brl(precoAtacado) : '—'
+  document.getElementById('cp-out-equilibrio').textContent  = custoTotal > 0 ? brl(custoTotal) : '—'
+
+  document.getElementById('cp-out-desconto-max').textContent = descontoMax !== null
+    ? `${brl(descontoMax)} (${descontoMax > 0 ? ((descontoMax / precoVarejo) * 100).toFixed(0) : 0}%)`
+    : '—'
+
+  document.getElementById('cp-out-lucro-varejo').textContent = lucroVarejo !== null && precoVarejo
+    ? `Lucro de ${brl(lucroVarejo)} por peça (${pctLucro.toFixed(0)}% do preço)`
+    : 'Preencha os campos para calcular'
+
+  // ── Avisos ──────────────────────────────────────────────────────
+  const aviso     = document.getElementById('cp-aviso')
+  const avisoTxt  = document.getElementById('cp-aviso-texto')
+  let mensagemAviso = ''
+
+  if (margem >= 100) {
+    mensagemAviso = 'Margem de varejo igual ou acima de 100% — não é possível calcular o preço de venda.'
+  } else if (precoAtacado && precoVarejo && precoAtacado >= precoVarejo) {
+    mensagemAviso = 'A margem de atacado está próxima ou igual à de varejo. Considere reduzi-la para viabilizar o desconto por volume.'
+  } else if (custoTotal > 0 && margem > 0 && margemAtacado > 0 && precoAtacado && precoAtacado < custoTotal) {
+    mensagemAviso = 'Atenção: o preço de atacado calculado está abaixo do custo total. Você operaria no prejuízo.'
+  }
+
+  if (mensagemAviso) {
+    aviso.style.display    = 'flex'
+    avisoTxt.textContent   = mensagemAviso
+  } else {
+    aviso.style.display    = 'none'
+    avisoTxt.textContent   = ''
+  }
+}
+
+// ── Previsão de entrega — visibilidade condicional ────────────────
+const STATUS_COM_PRAZO   = ['Em produção', 'Pronto para envio', 'Pago parcial', 'Pago integral']
+const STATUS_COM_RASTREIO = ['Enviado']
+
+function atualizarVisibilidadePrevisao(statusValue) {
+  const container = document.getElementById('container-data-previsao')
+  if (!container) return
+  const mostrar = STATUS_COM_PRAZO.includes(statusValue)
+  container.style.display = mostrar ? 'block' : 'none'
+  if (!mostrar) document.getElementById('pedido-data-previsao').value = ''
+}
+
+function atualizarVisibilidadeRastreio(statusValue) {
+  const container = document.getElementById('container-rastreio')
+  if (!container) return
+  const mostrar = STATUS_COM_RASTREIO.includes(statusValue)
+  container.style.display = mostrar ? 'block' : 'none'
+  if (!mostrar) document.getElementById('pedido-rastreio').value = ''
+}
+
+// listener delegado — funciona mesmo após o modal ser reiniciado
+document.addEventListener('change', function (e) {
+  if (e.target.id === 'pedido-status') {
+    atualizarVisibilidadePrevisao(e.target.value)
+    atualizarVisibilidadeRastreio(e.target.value)
+  }
+})
+
+// ── Comunicação com cliente ────────────────────────────────────────
+function _getPedidoAtualDetalhes() {
+  const id = document.getElementById('det-id').value
+  return pedidosCarregados.find(x => x.id === id) || null
+}
+
+function _formatarTelefone(tel) {
+  if (!tel) return null
+  return tel.replace(/\D/g, '')
+}
+
+function _mostrarMensagem(texto) {
+  document.getElementById('det-msg-texto').textContent    = texto
+  document.getElementById('det-msg-preview').style.display = 'block'
+}
+
+function gerarResumoPedido() {
+  const p = _getPedidoAtualDetalhes()
+  if (!p) return
+  const template = templatesMensagem.msg_resumo || TEMPLATES_PADRAO.msg_resumo
+  _mostrarMensagem(formatarMensagem(template, p))
+}
+
+function avisarStatus() {
+  const p      = _getPedidoAtualDetalhes()
+  if (!p) return
+  const status = document.getElementById('det-status-pedido').value
+
+  let chave = null
+  if (status === 'Em produção')      chave = 'msg_status_producao'
+  if (status === 'Pronto para envio') chave = 'msg_status_pronto'
+  if (status === 'Enviado')          chave = 'msg_status_enviado'
+
+  if (chave) {
+    const template = templatesMensagem[chave] || TEMPLATES_PADRAO[chave]
+    _mostrarMensagem(formatarMensagem(template, p))
+    return
+  }
+
+  // Fallback para status sem template customizável
+  const nome = (p.cliente_nome || '').split(' ')[0]
+  let msg = ''
+
+  if (status === 'Entregue') {
+    msg = `Oie ${nome}! 🍒\n\nO sistema apontou que o seu pedido foi entregue! Espero que você tenha amado tudo. 🥰\n\nSe puder, me conta o que achou — fico feliz demais com o seu feedback! 💕`
+  } else if (status === 'Aguardando confirmação') {
+    msg = `Oie ${nome}! 🍒\n\nPassando pra confirmar o seu pedido *${p.codigo}*:\n\n*Produto:* ${p.produto || '—'}\n*Total:* ${brl(p.total_final)}\n\nMe confirma se tudo está certinho para eu dar início à produção! 🎀`
+  } else {
+    msg = `Oie ${nome}! 🍒\n\nPassando para dar um update sobre o seu pedido *${p.codigo}*:\n\n*Status atual:* ${status}\n\nQualquer dúvida é só chamar! 💕`
+  }
+
+  _mostrarMensagem(msg)
+}
+
+function copiarMensagem() {
+  const texto = document.getElementById('det-msg-texto').textContent
+  if (!texto) return
+  navigator.clipboard.writeText(texto)
+    .then(() => toast('Mensagem copiada!'))
+    .catch(() => toast('Erro ao copiar. Selecione o texto manualmente.', 'error'))
+}
+
+function enviarWhatsApp() {
+  const p = _getPedidoAtualDetalhes()
+  if (!p) return
+
+  const texto = document.getElementById('det-msg-texto').textContent
+  if (!texto) { toast('Gere uma mensagem primeiro', 'error'); return }
+
+  const tel = _formatarTelefone(p.contato_cliente ||
+    clientesCarregados.find(c => c.id === p.cliente_id)?.contato || '')
+
+  const encoded = encodeURIComponent(texto)
+
+  if (tel && tel.length >= 10) {
+    window.open(`https://wa.me/55${tel}?text=${encoded}`, '_blank')
+  } else {
+    window.open(`https://wa.me/?text=${encoded}`, '_blank')
+  }
+}
+
+async function atualizarStatusPedido() {
+  const id              = document.getElementById('det-id').value
+  const status_pedido   = document.getElementById('det-status-pedido').value
+  const status_pagamento= document.getElementById('det-status-pagamento').value
+  const data_previsao   = document.getElementById('det-data-previsao').value   || null
+  const codigo_rastreio = document.getElementById('det-codigo-rastreio').value.trim().toUpperCase() || null
+
+  // Salva status via schema normal
+  const { error } = await sb.schema(S).from('pedidos').update({
+    status_pedido,
+    status_pagamento,
+  }).eq('id', id)
+
+  if (error) { toast('Erro ao atualizar status: ' + error.message, 'error'); return }
+
+  // Salva campos extras via RPC (contorna cache PostgREST)
+  const pedido = pedidosCarregados.find(x => x.id === id)
+  await sb.rpc('atualizar_pedido_extra', {
+    p_id:              id,
+    p_valor_adiantado: parseFloat(pedido?.valor_adiantado) || 0,
+    p_produto_id:      pedido?.produto_id || null,
+    p_data_previsao:   data_previsao,
+    p_codigo_rastreio: codigo_rastreio,
+  })
+
+  toast('Status atualizado!')
+  fecharModal('modal-detalhes')
+  loadPedidos()
+  loadDashboard()
 }
 
 async function salvarAdiantadoDetalhes() {
@@ -351,7 +710,11 @@ async function salvarAdiantadoDetalhes() {
   const prodId   = pedido?.produto_id || null
 
   const { error } = await sb.rpc('atualizar_pedido_extra', {
-    p_id: id, p_valor_adiantado: valor, p_produto_id: prodId
+    p_id:              id,
+    p_valor_adiantado: valor,
+    p_produto_id:      prodId,
+    p_data_previsao:   pedido?.data_previsao   || null,
+    p_codigo_rastreio: pedido?.codigo_rastreio || null,
   })
   if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
@@ -416,6 +779,8 @@ async function abrirModalPedido() {
   addVariacao()
   addVariacao()
   recalcPedido()
+  atualizarVisibilidadePrevisao(document.getElementById('pedido-status').value)
+  atualizarVisibilidadeRastreio(document.getElementById('pedido-status').value)
   document.getElementById('modal-pedido').classList.add('open')
 }
 
@@ -453,8 +818,12 @@ async function abrirModalEditarPedido(id) {
   document.getElementById('pedido-frete').value         = p.frete || ''
   document.getElementById('pedido-status').value        = p.status_pedido    || 'Aguardando confirmação'
   document.getElementById('pedido-status-pgto').value   = p.status_pagamento || 'Pendente'
-  document.getElementById('pedido-obs').value           = p.observacao || ''
-  document.getElementById('pedido-adiantado').value     = p.valor_adiantado || ''
+  document.getElementById('pedido-obs').value            = p.observacao || ''
+  document.getElementById('pedido-adiantado').value      = p.valor_adiantado || ''
+  document.getElementById('pedido-data-previsao').value = p.data_previsao ? p.data_previsao.split('T')[0] : ''
+  document.getElementById('pedido-rastreio').value      = p.codigo_rastreio || ''
+  atualizarVisibilidadePrevisao(p.status_pedido || 'Aguardando confirmação')
+  atualizarVisibilidadeRastreio(p.status_pedido || 'Aguardando confirmação')
 
   // Carrega contexto de preços do produto
   if (p.produto_id) {
@@ -603,8 +972,8 @@ async function salvarPedido(e) {
     desconto_acrescimo:  desconto,
     frete:               frete,
     total_final:         total,
-    status_pedido:       document.getElementById('pedido-status').value,
-    status_pagamento:    document.getElementById('pedido-status-pgto').value,
+    status_pedido:       'Aguardando confirmação',
+    status_pagamento:    'Pendente',
     observacao:          document.getElementById('pedido-obs').value.trim(),
   }
 
@@ -613,7 +982,13 @@ async function salvarPedido(e) {
     const { error } = await sb.schema(S).from('pedidos').update(pedidoPayload).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
-    await sb.rpc('atualizar_pedido_extra', { p_id: editId, p_valor_adiantado: valorAdiantado, p_produto_id: produtoId })
+    await sb.rpc('atualizar_pedido_extra', {
+      p_id:              editId,
+      p_valor_adiantado: valorAdiantado,
+      p_produto_id:      produtoId,
+      p_data_previsao:   null,
+      p_codigo_rastreio: null,
+    })
 
     await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
     if (variacoes.length)
@@ -628,7 +1003,13 @@ async function salvarPedido(e) {
     const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
     if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
-    await sb.rpc('atualizar_pedido_extra', { p_id: pedido.id, p_valor_adiantado: valorAdiantado, p_produto_id: produtoId })
+    await sb.rpc('atualizar_pedido_extra', {
+      p_id:              pedido.id,
+      p_valor_adiantado: valorAdiantado,
+      p_produto_id:      produtoId,
+      p_data_previsao:   null,
+      p_codigo_rastreio: null,
+    })
 
     if (variacoes.length)
       await sb.schema(S).from('itens_pedido').insert(variacoes.map(v => ({ ...v, pedido_id: pedido.id })))
@@ -663,6 +1044,141 @@ async function confirmarExclusaoPedido() {
   fecharModal('modal-excluir-pedido')
   loadPedidos()
   loadDashboard()
+}
+
+// ── Templates de mensagens ────────────────────────────────────────
+let templatesMensagem = {}
+
+const TEMPLATES_PADRAO = {
+  msg_resumo:
+`🍒 *Cherry Bomb Handmade*
+━━━━━━━━━━━━━━━━━━━━
+📦 *Resumo do seu pedido*
+Código: *{{codigo}}*
+
+*Produto:* {{produto}}
+*Itens:*
+{{itens}}
+
+💰 *Valores*
+Subtotal: {{subtotal}}
+{{frete_linha}}{{desconto_linha}}*Total: {{total}}*
+━━━━━━━━━━━━━━━━━━━━
+✅ Valor pago: {{pago}}
+🔴 Ainda a receber: *{{receber}}*
+
+Qualquer dúvida é só chamar! 🍒`,
+
+  msg_status_producao:
+`Oie {{nome}}! 🍒
+
+Passando pra avisar que o seu pedido *{{codigo}}* já entrou em produção e está sendo feito com muito carinho!
+{{previsao_linha}}Assim que ficar prontinho eu te aviso. 💕`,
+
+  msg_status_pronto:
+`Oie {{nome}}! 🍒
+
+Suas lindezas ficaram prontas e já estão na bancada de expedição! 🎀📦
+
+Assim que você confirmar o acerto do restante (*{{receber}}*), eu já libero o rastreio pra você! ✨`,
+
+  msg_status_enviado:
+`Oie {{nome}}! 🍒
+
+O seu pedido *{{codigo}}* foi enviado hoje e já está a caminho! 📦🚚
+
+Assim que eu tiver o código de rastreio eu mando aqui pra você acompanhar. 💕`
+}
+
+async function carregarTemplates() {
+  const { data, error } = await sb.schema(S).from('configuracoes').select('chave, valor')
+  if (error || !data?.length) {
+    templatesMensagem = { ...TEMPLATES_PADRAO }
+    return
+  }
+  templatesMensagem = { ...TEMPLATES_PADRAO }
+  data.forEach(row => { templatesMensagem[row.chave] = row.valor })
+}
+
+async function loadMensagens() {
+  await carregarTemplates()
+  Object.keys(TEMPLATES_PADRAO).forEach(chave => {
+    const el = document.getElementById(`tmpl-${chave}`)
+    if (el) el.value = templatesMensagem[chave] || ''
+  })
+}
+
+async function salvarTemplates() {
+  const upserts = Object.keys(TEMPLATES_PADRAO).map(chave => {
+    const el = document.getElementById(`tmpl-${chave}`)
+    return { chave, valor: el?.value || TEMPLATES_PADRAO[chave] }
+  })
+
+  for (const row of upserts) {
+    await sb.schema(S).from('configuracoes')
+      .upsert({ chave: row.chave, valor: row.valor }, { onConflict: 'chave' })
+  }
+
+  await carregarTemplates()
+  toast('Templates salvos com sucesso!')
+}
+
+async function resetarTemplates() {
+  if (!confirm('Deseja restaurar todos os templates para o texto padrão? As suas edições serão perdidas.')) return
+
+  for (const [chave, valor] of Object.entries(TEMPLATES_PADRAO)) {
+    await sb.schema(S).from('configuracoes')
+      .upsert({ chave, valor }, { onConflict: 'chave' })
+    const el = document.getElementById(`tmpl-${chave}`)
+    if (el) el.value = valor
+  }
+
+  await carregarTemplates()
+  toast('Templates restaurados para o padrão!')
+}
+
+// ── Processador de templates ──────────────────────────────────────
+function formatarMensagem(template, p) {
+  const subtotal  = parseFloat(p.subtotal)           || 0
+  const frete     = parseFloat(p.frete)              || 0
+  const desconto  = parseFloat(p.desconto_acrescimo) || 0
+  const total     = parseFloat(p.total_final)        || 0
+  const adiantado = parseFloat(p.valor_adiantado)    || 0
+  const restante  = total - adiantado
+  const nome      = (p.cliente_nome || '').split(' ')[0]
+
+  const itens = (p.itens_pedido || [])
+    .map(i => `   • ${i.quantidade}x ${i.variacao}`)
+    .join('\n')
+
+  const freteLinha    = frete > 0   ? `Frete: + ${brl(frete)}\n` : ''
+  const descontoLinha = desconto !== 0
+    ? `${desconto < 0 ? 'Desconto' : 'Acréscimo'}: ${desconto < 0 ? '− ' + brl(Math.abs(desconto)) : '+ ' + brl(desconto)}\n`
+    : ''
+
+  const previsaoLinha = p.data_previsao
+    ? `\nA previsão de envio é para o dia *${
+        new Date(p.data_previsao + 'T12:00:00')
+          .toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
+      }*! 🍒✂️`
+    : ''
+
+  const dataHoje = new Date().toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
+
+  return template
+    .replace(/{{nome}}/g,           nome)
+    .replace(/{{codigo}}/g,         p.codigo           || '—')
+    .replace(/{{produto}}/g,        p.produto          || '—')
+    .replace(/{{itens}}/g,          itens              || '—')
+    .replace(/{{subtotal}}/g,       brl(subtotal))
+    .replace(/{{frete_linha}}/g,    freteLinha)
+    .replace(/{{desconto_linha}}/g, descontoLinha)
+    .replace(/{{total}}/g,          brl(total))
+    .replace(/{{pago}}/g,           brl(adiantado))
+    .replace(/{{receber}}/g,        brl(restante))
+    .replace(/{{previsao_linha}}/g, previsaoLinha)
+    .replace(/{{rastreio}}/g,       p.codigo_rastreio || 'Em breve')
+    .replace(/{{data}}/g,           dataHoje)
 }
 
 // ── Produtos ──────────────────────────────────────────────────────
@@ -883,9 +1399,11 @@ function switchConfigTab(tab) {
   document.querySelectorAll('.config-panel').forEach(p => {
     p.style.display = p.id === `config-tab-${tab}` ? 'block' : 'none'
   })
-  if (tab === 'clientes')   loadClientes()
-  if (tab === 'financeiro') loadLancamentos()
-  if (tab === 'produtos')   loadProdutos()
+  if (tab === 'clientes')     loadClientes()
+  if (tab === 'financeiro')   loadLancamentos()
+  if (tab === 'produtos')     loadProdutos()
+  if (tab === 'mensagens')    loadMensagens()
+  if (tab === 'calculadora')  calcularPrecificacao()
 }
 
 // ── Lançamentos Financeiros ───────────────────────────────────────
@@ -1042,11 +1560,47 @@ function abrirModalCliente() {
   document.getElementById('form-cliente').reset()
   document.getElementById('cli-id').value = ''
   document.getElementById('modal-cliente-titulo').textContent = 'Novo cliente'
+  // esconde histórico em novo cadastro
+  document.getElementById('cliente-historico-secao').style.display = 'none'
   document.getElementById('modal-cliente').classList.add('open')
 }
 
 function abrirModalClienteRapido() {
   abrirModalCliente()
+}
+
+async function carregarHistoricoCliente(clienteId) {
+  const secao = document.getElementById('cliente-historico-secao')
+  const lista = document.getElementById('cliente-historico-lista')
+  if (!secao || !lista) return
+
+  secao.style.display = 'block'
+  lista.innerHTML = '<p class="cli-historico-vazio">Carregando...</p>'
+
+  const { data, error } = await sb.schema(S)
+    .from('pedidos')
+    .select('id, codigo, data_pedido, produto, total_final, status_pedido, status_pagamento')
+    .eq('cliente_id', clienteId)
+    .order('data_pedido', { ascending: false })
+
+  if (error) {
+    lista.innerHTML = '<p class="cli-historico-vazio">Erro ao carregar histórico.</p>'
+    return
+  }
+
+  if (!data || !data.length) {
+    lista.innerHTML = '<p class="cli-historico-vazio">Nenhuma encomenda registrada para este cliente.</p>'
+    return
+  }
+
+  lista.innerHTML = data.map(p => `
+    <div class="cli-historico-item" onclick="fecharModal('modal-cliente'); abrirDetalhesPedido('${p.id}')">
+      <span class="cli-historico-data">${fmtData(p.data_pedido)}</span>
+      <span class="cli-historico-prod">${p.produto || p.codigo || '—'}</span>
+      ${badgePedido(p.status_pedido)}
+      <span class="cli-historico-valor">${brl(p.total_final)}</span>
+    </div>
+  `).join('')
 }
 
 function abrirModalEditarCliente(id) {
@@ -1062,6 +1616,7 @@ function abrirModalEditarCliente(id) {
 
   document.getElementById('modal-cliente-titulo').textContent = `Editar: ${c.nome}`
   document.getElementById('modal-cliente').classList.add('open')
+  carregarHistoricoCliente(c.id)
 }
 
 function abrirModalExcluirCliente(id) {
@@ -1111,6 +1666,28 @@ async function salvarCliente(e) {
   }
 
   if (!payload.nome) { toast('Nome é obrigatório', 'error'); return }
+
+  // ── Verificação de duplicidade (apenas em novos cadastros) ────
+  if (!editId) {
+    let query = sb.schema(S).from('clientes').select('id, nome, contato').limit(5)
+
+    const filtros = []
+    if (payload.nome)    filtros.push(`nome.ilike.${payload.nome}`)
+    if (payload.contato) filtros.push(`contato.eq.${payload.contato}`)
+
+    if (filtros.length) {
+      const { data: duplicados } = await query.or(filtros.join(','))
+
+      if (duplicados && duplicados.length > 0) {
+        const encontrado = duplicados[0]
+        const msg = `Atenção! Já existe um cliente cadastrado com este nome ou contato:\n\n` +
+                    `"${encontrado.nome}" — ${encontrado.contato || 'sem contato'}\n\n` +
+                    `Deseja prosseguir com o novo cadastro mesmo assim?`
+
+        if (!confirm(msg)) return
+      }
+    }
+  }
 
   if (editId) {
     // ── UPDATE ──────────────────────────────────────────────────
@@ -1391,6 +1968,16 @@ window.toggleAtivoProduto           = toggleAtivoProduto
 window.salvarProduto                = salvarProduto
 window.addVariacaoProduto           = addVariacaoProduto
 window.addFaixaPreco                = addFaixaPreco
+window.gerarResumoPedido            = gerarResumoPedido
+window.avisarStatus                 = avisarStatus
+window.copiarMensagem               = copiarMensagem
+window.enviarWhatsApp               = enviarWhatsApp
+window.salvarTemplates              = salvarTemplates
+window.resetarTemplates             = resetarTemplates
+window.atualizarStatusPedido        = atualizarStatusPedido
+window.onDetStatusChange            = onDetStatusChange
+window.carregarHistoricoCliente     = carregarHistoricoCliente
+window.calcularPrecificacao         = calcularPrecificacao
 
 // ── Inicialização ─────────────────────────────────────────────────
 document.getElementById('today-date').textContent =
@@ -1398,6 +1985,7 @@ document.getElementById('today-date').textContent =
 
 // Esconde splash após dashboard carregar
 async function init() {
+  await carregarTemplates()
   await navigate('dashboard')
   setTimeout(() => {
     document.getElementById('splash').classList.add('hide')
