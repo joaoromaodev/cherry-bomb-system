@@ -1298,14 +1298,31 @@ function toggleDropdown(id) {
   const content   = container.querySelector('.dropdown-content')
   const isOpen    = content.classList.contains('open')
 
-  // fecha todos antes de abrir o clicado
   document.querySelectorAll('.dropdown-content.open')
     .forEach(el => el.classList.remove('open'))
 
   if (!isOpen) {
-    const rect = trigger.getBoundingClientRect()
-    content.style.top   = `${rect.bottom + 4}px`
-    content.style.right = `${window.innerWidth - rect.right}px`
+    const rect        = trigger.getBoundingClientRect()
+    const dropW       = 170
+    const spaceRight  = window.innerWidth - rect.right
+    const spaceLeft   = rect.left
+
+    content.style.top  = `${rect.bottom + 4}px`
+    content.style.left = ''
+    content.style.right = ''
+
+    if (spaceRight >= dropW) {
+      // abre para a esquerda ancorado na direita do trigger
+      content.style.right = `${spaceRight}px`
+    } else if (spaceLeft >= dropW) {
+      // abre para a direita ancorado na esquerda do trigger
+      content.style.left = `${rect.left}px`
+    } else {
+      // tela pequena — centraliza com margem de segurança
+      content.style.left  = '12px'
+      content.style.right = '12px'
+    }
+
     content.classList.add('open')
   }
 }
