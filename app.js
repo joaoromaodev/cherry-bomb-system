@@ -449,10 +449,17 @@ async function salvarPedido(e) {
     observacao:          document.getElementById('pedido-obs').value.trim(),
   }
 
+  // remove do payload principal para evitar erro de cache do PostgREST
+  const valorAdiantado = pedidoPayload.valor_adiantado || 0
+  delete pedidoPayload.valor_adiantado
+
   if (editId) {
     // ── UPDATE ──────────────────────────────────────────────────
     const { error } = await sb.schema(S).from('pedidos').update(pedidoPayload).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
+
+    // salva adiantado via rpc, ignorando o cache
+    await sb.schema(S).rpc('atualizar_adiantado', { p_id: editId, p_valor: valorAdiantado })
 
     await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
     if (variacoes.length) {
@@ -467,6 +474,9 @@ async function salvarPedido(e) {
 
     const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
     if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+
+    // salva adiantado via rpc, ignorando o cache
+    await sb.schema(S).rpc('atualizar_adiantado', { p_id: pedido.id, p_valor: valorAdiantado })
 
     if (variacoes.length) {
       const itens = variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
