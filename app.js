@@ -926,16 +926,21 @@ async function onProdutoChange(existingItems = []) {
   recalcPedido()
 }
 
-function addVariacao(variacoes = [], selectedValue = '', qtd = '') {
+function addVariacao(variacoes, selectedValue = '', qtd = '') {
+  // se não receber variacoes explícitas, usa o contexto atual do produto
+  const lista = (variacoes !== undefined && variacoes !== null)
+    ? variacoes
+    : produtoAtualVariacoes
+
   const list = document.getElementById('variacao-list')
   const n    = list.children.length + 1
   const div  = document.createElement('div')
   div.className = 'var-row'
 
-  const varInput = variacoes.length
+  const varInput = lista.length
     ? `<select class="var-nome" oninput="recalcPedido()">
         <option value="">Selecione...</option>
-        ${variacoes.map(v =>
+        ${lista.map(v =>
           `<option value="${v.nome}" ${v.nome === selectedValue ? 'selected' : ''}>${v.nome}</option>`
         ).join('')}
        </select>`
@@ -1972,6 +1977,9 @@ document.addEventListener('click', function (e) {
 function fecharModal(id) {
   const el = document.getElementById(id)
   el.classList.remove('open')
+  // fecha qualquer dropdown aberto ao abrir/fechar modais
+  document.querySelectorAll('.dropdown-content.open')
+    .forEach(d => d.classList.remove('open'))
 }
 
 function fecharSeBackdrop(e, id) {

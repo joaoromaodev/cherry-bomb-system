@@ -436,8 +436,14 @@ body {
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 20px;
-  width: fit-content;
+  width: 100%;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+
+.config-tabs::-webkit-scrollbar { display: none; }
 
 .config-tab {
   padding: 8px 22px;
