@@ -305,13 +305,13 @@ async function loadPedidos(filtroStatus = '') {
     .order('created_at', { ascending: false })
 
   if (filtroStatus) query = query.eq('status_pedido', filtroStatus)
-  
+
   const { data, error } = await query
   if (error) { toast('Erro ao carregar pedidos: ' + error.message, 'error'); return }
-  
-  pedidosCarregados = data; 
 
- // busca campos extras via RPC (contorna cache do PostgREST)
+  pedidosCarregados = data
+
+  // busca campos extras via RPC (contorna cache do PostgREST)
   const { data: extras } = await sb.rpc('get_campos_extras')
 
   if (extras) {
@@ -319,10 +319,16 @@ async function loadPedidos(filtroStatus = '') {
     extras.forEach(e => { mapaExtras[e.pedido_id] = e })
     data.forEach(p => {
       const ex = mapaExtras[p.id] || {}
-      p.valor_adiantado  = ex.valor_adiantado  || 0
-      p.produto_id       = ex.produto_id       || null
-      p.data_previsao    = ex.data_previsao    || null
-      p.codigo_rastreio  = ex.codigo_rastreio  || null
+
+      // valor_adiantado e produto_id vivem nas extras — RPC tem prioridade
+      p.valor_adiantado = ex.valor_adiantado ?? p.valor_adiantado ?? 0
+      p.produto_id      = ex.produto_id      ?? p.produto_id      ?? null
+
+      // ⚠️ data_previsao e codigo_rastreio agora são salvos DIRETO na tabela pedidos
+      // O select('*') já trouxe o valor correto. Só usa o extras como fallback
+      // se o campo ainda não existir na tabela principal (migração antiga).
+      p.data_previsao   = p.data_previsao   ?? ex.data_previsao   ?? null
+      p.codigo_rastreio = p.codigo_rastreio ?? ex.codigo_rastreio ?? null
     })
   }
 
@@ -415,7 +421,7 @@ function abrirDetalhesPedido(id) {
   document.getElementById('det-produto').textContent  = p.produto || '—'
   document.getElementById('det-obs').textContent      = p.observacao || 'Nenhuma observação.'
 
-  // ── Bloco financeiro detalhado ──────────────────────────────────
+  // ── Bloco financeiro detalhado ──────────────────────────────
   const subtotal  = parseFloat(p.subtotal)            || 0
   const frete     = parseFloat(p.frete)               || 0
   const desconto  = parseFloat(p.desconto_acrescimo)  || 0
@@ -424,7 +430,9 @@ function abrirDetalhesPedido(id) {
   const restante  = total - adiantado
 
   const descontoLabel = desconto < 0 ? 'Desconto' : desconto > 0 ? 'Acréscimo' : null
-  const descontoStr   = desconto < 0 ? `− ${brl(Math.abs(desconto))}` : `+ ${brl(desconto)}`
+  const descontoStr   = desconto < 0
+    ? `− ${brl(Math.abs(desconto))}`
+    : `+ ${brl(desconto)}`
 
   document.getElementById('det-financeiro').innerHTML = `
     <div class="det-fin-row">
@@ -456,18 +464,18 @@ function abrirDetalhesPedido(id) {
     </div>
   `
 
-  // ── Variações ───────────────────────────────────────────────────
+  // ── Variações ───────────────────────────────────────────────
   const varStr = (p.itens_pedido || [])
     .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
     .join('<br>')
   document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.'
 
-  // Previsão de envio e rastreio
+  // ── Logística (previsão + rastreio) — aparece ANTES das observações ──
   const previsaoEl = document.getElementById('det-info-logistica')
   if (previsaoEl) {
     const previsaoFmt = p.data_previsao
       ? new Date(p.data_previsao + 'T12:00:00')
-          .toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
+          .toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
       : null
 
     const linhaPrevisao = previsaoFmt
@@ -487,11 +495,12 @@ function abrirDetalhesPedido(id) {
     }
   }
 
-  document.getElementById('det-adiantado-input').value      = adiantado || ''
-  document.getElementById('det-status-pedido').value        = p.status_pedido    || 'Aguardando confirmação'
-  document.getElementById('det-status-pagamento').value     = p.status_pagamento || 'Pendente'
-  document.getElementById('det-data-previsao').value        = p.data_previsao    ? p.data_previsao.split('T')[0] : ''
-  document.getElementById('det-codigo-rastreio').value      = p.codigo_rastreio  || ''
+  // ── Inputs da seção de status ───────────────────────────────
+  document.getElementById('det-adiantado-input').value  = adiantado || ''
+  document.getElementById('det-status-pedido').value    = p.status_pedido    || 'Aguardando confirmação'
+  document.getElementById('det-status-pagamento').value = p.status_pagamento || 'Pendente'
+  document.getElementById('det-data-previsao').value    = p.data_previsao    ? p.data_previsao.split('T')[0] : ''
+  document.getElementById('det-codigo-rastreio').value  = p.codigo_rastreio  || ''
 
   // Visibilidade condicional dos campos de status
   onDetStatusChange(p.status_pedido || 'Aguardando confirmação')
@@ -703,12 +712,14 @@ async function atualizarStatusPedido() {
 
   const status_pedido    = document.getElementById('det-status-pedido').value
   const status_pagamento = document.getElementById('det-status-pagamento').value
-  const dataPrevisaoRaw  = document.getElementById('det-data-previsao')?.value   || null
-  const rastreioRaw      = document.getElementById('det-codigo-rastreio')?.value || null
-  const data_previsao    = dataPrevisaoRaw  || null
-  const codigo_rastreio  = rastreioRaw?.trim().toUpperCase() || null
 
-  // Salva tudo em uma única chamada de update
+  // Captura previsão e rastreio diretamente dos inputs do modal
+  const dataPrevisaoRaw = document.getElementById('det-data-previsao')?.value?.trim() || ''
+  const rastreioRaw     = document.getElementById('det-codigo-rastreio')?.value?.trim() || ''
+
+  const data_previsao   = dataPrevisaoRaw  || null
+  const codigo_rastreio = rastreioRaw ? rastreioRaw.toUpperCase() : null
+
   const { error } = await sb.schema(S).from('pedidos').update({
     status_pedido,
     status_pagamento,
@@ -734,35 +745,33 @@ async function atualizarStatusPedido() {
 }
 
 async function salvarAdiantadoDetalhes() {
-  const id    = document.getElementById('det-id').value
-  const raw   = document.getElementById('det-adiantado-input').value || '0'
-  const valor = parseFloat(raw.replace(',', '.')) || 0
+  const idPedido = document.getElementById('det-id').value
+  if (!idPedido) { toast('Pedido não identificado', 'error'); return }
 
-  if (!id) { toast('Pedido não identificado', 'error'); return }
+  const raw          = document.getElementById('det-adiantado-input').value || '0'
+  const valorTratado = parseFloat(raw.replace(',', '.')) || 0
 
   const { error } = await sb.schema(S).from('pedidos')
-    .update({ valor_adiantado: valor })
-    .eq('id', id)
+    .update({ valor_adiantado: valorTratado })
+    .eq('id', idPedido)
 
   if (error) { toast('Erro ao salvar valor pago: ' + error.message, 'error'); return }
 
   // Atualiza cache local
-  const idx = pedidosCarregados.findIndex(x => x.id === id)
-  if (idx >= 0) pedidosCarregados[idx].valor_adiantado = valor
+  const idx = pedidosCarregados.findIndex(x => x.id === idPedido)
+  if (idx >= 0) pedidosCarregados[idx].valor_adiantado = valorTratado
 
-  // Recalcula e re-renderiza o bloco financeiro sem fechar o modal
-  const p = pedidosCarregados.find(x => x.id === id)
+  // Re-renderiza o bloco financeiro sem fechar o modal
+  const p = pedidosCarregados.find(x => x.id === idPedido)
   if (p) {
-    p.valor_adiantado   = valor
-    const adiantado     = valor
-    const restante      = (parseFloat(p.total_final) || 0) - adiantado
-    const detFinEl      = document.getElementById('det-financeiro')
+    p.valor_adiantado = valorTratado
+    const restante    = (parseFloat(p.total_final) || 0) - valorTratado
+    const detFinEl    = document.getElementById('det-financeiro')
     if (detFinEl) {
-      const rows = detFinEl.querySelectorAll('.det-fin-row')
-      rows.forEach(row => {
+      detFinEl.querySelectorAll('.det-fin-row').forEach(row => {
         const label = row.querySelector('span:first-child')?.textContent?.trim()
         const val   = row.querySelector('span:last-child')
-        if (label === 'Valor pago'       && val) val.textContent = brl(adiantado)
+        if (label === 'Valor pago'       && val) val.textContent = brl(valorTratado)
         if (label === 'Ainda a receber'  && val) val.textContent = brl(restante)
       })
     }
@@ -834,6 +843,7 @@ async function abrirModalPedido() {
 }
 
 async function abrirModalEditarPedido(id) {
+  // Fecha qualquer dropdown aberto antes de qualquer coisa
   document.querySelectorAll('.dropdown-content.open')
     .forEach(d => d.classList.remove('open'))
 
@@ -863,22 +873,20 @@ async function abrirModalEditarPedido(id) {
     '<option value="">Selecione o produto...</option>' +
     (resProdutos.data || []).map(pr => `<option value="${pr.id}">${pr.nome}</option>`).join('')
 
-  document.getElementById('pedido-id').value            = p.id
-  document.getElementById('pedido-cliente').value       = p.cliente_id || ''
-  document.getElementById('pedido-produto').value       = p.produto_id || ''
-  document.getElementById('pedido-desconto').value      = p.desconto_acrescimo || ''
-  document.getElementById('pedido-frete').value         = p.frete || ''
-  document.getElementById('pedido-status').value        = p.status_pedido    || 'Aguardando confirmação'
-  document.getElementById('pedido-status-pgto').value   = p.status_pagamento || 'Pendente'
-  document.getElementById('pedido-obs').value       = p.observacao || ''
-  document.getElementById('pedido-adiantado').value = p.valor_adiantado || ''
-  // previsão e rastreio gerenciados exclusivamente no modal de detalhes
+  document.getElementById('pedido-id').value           = p.id
+  document.getElementById('pedido-cliente').value      = p.cliente_id || ''
+  document.getElementById('pedido-produto').value      = p.produto_id || ''
+  document.getElementById('pedido-desconto').value     = p.desconto_acrescimo || ''
+  document.getElementById('pedido-frete').value        = p.frete || ''
+  document.getElementById('pedido-status').value       = p.status_pedido    || 'Aguardando confirmação'
+  document.getElementById('pedido-status-pgto').value  = p.status_pagamento || 'Pendente'
+  document.getElementById('pedido-obs').value          = p.observacao || ''
+  document.getElementById('pedido-adiantado').value    = p.valor_adiantado || ''
 
-  // Carrega contexto de preços do produto
   if (p.produto_id) {
     const prod = produtosCarregados.find(x => x.id === p.produto_id)
-    produtoAtualVariacoes = (prod?.produto_variacoes || []).sort((a,b) => a.nome.localeCompare(b.nome))
-    produtoAtualPrecos    = (prod?.produto_precos    || []).sort((a,b) => a.qtd_minima - b.qtd_minima)
+    produtoAtualVariacoes = (prod?.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
+    produtoAtualPrecos    = (prod?.produto_precos    || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
   } else {
     produtoAtualVariacoes = []
     produtoAtualPrecos    = []
