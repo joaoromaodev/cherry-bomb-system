@@ -698,39 +698,33 @@ function enviarWhatsApp() {
 }
 
 async function atualizarStatusPedido() {
-  const id              = document.getElementById('det-id').value
-  const status_pedido   = document.getElementById('det-status-pedido').value
-  const status_pagamento= document.getElementById('det-status-pagamento').value
-
-  const dataPrevisaoVal  = document.getElementById('det-data-previsao')?.value   || null
-  const rastreioVal      = document.getElementById('det-codigo-rastreio')?.value?.trim().toUpperCase() || null
-
+  const id = document.getElementById('det-id').value
   if (!id) { toast('Pedido não identificado', 'error'); return }
 
-  // 1. Salva status + campos que o PostgREST conhece
-  const { error: errStatus } = await sb.schema(S).from('pedidos').update({
+  const status_pedido    = document.getElementById('det-status-pedido').value
+  const status_pagamento = document.getElementById('det-status-pagamento').value
+  const dataPrevisaoRaw  = document.getElementById('det-data-previsao')?.value   || null
+  const rastreioRaw      = document.getElementById('det-codigo-rastreio')?.value || null
+  const data_previsao    = dataPrevisaoRaw  || null
+  const codigo_rastreio  = rastreioRaw?.trim().toUpperCase() || null
+
+  // Salva tudo em uma única chamada de update
+  const { error } = await sb.schema(S).from('pedidos').update({
     status_pedido,
     status_pagamento,
+    data_previsao,
+    codigo_rastreio,
   }).eq('id', id)
 
-  if (errStatus) { toast('Erro ao salvar status: ' + errStatus.message, 'error'); return }
+  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
-  // 2. Salva previsão e rastreio via update direto (mais confiável que RPC)
-  const { error: errExtras } = await sb.schema(S).from('pedidos').update({
-    data_previsao:   dataPrevisaoVal  || null,
-    codigo_rastreio: rastreioVal      || null,
-  }).eq('id', id)
-
-  if (errExtras) {
-    // fallback via RPC se o update direto falhar por cache
-    const pedido = pedidosCarregados.find(x => x.id === id)
-    await sb.rpc('atualizar_pedido_extra', {
-      p_id:              id,
-      p_valor_adiantado: parseFloat(pedido?.valor_adiantado) || 0,
-      p_produto_id:      pedido?.produto_id  || null,
-      p_data_previsao:   dataPrevisaoVal     || null,
-      p_codigo_rastreio: rastreioVal         || null,
-    })
+  // Atualiza cache local
+  const idx = pedidosCarregados.findIndex(x => x.id === id)
+  if (idx >= 0) {
+    pedidosCarregados[idx].status_pedido    = status_pedido
+    pedidosCarregados[idx].status_pagamento = status_pagamento
+    pedidosCarregados[idx].data_previsao    = data_previsao
+    pedidosCarregados[idx].codigo_rastreio  = codigo_rastreio
   }
 
   toast('Alterações salvas!')
@@ -741,42 +735,42 @@ async function atualizarStatusPedido() {
 
 async function salvarAdiantadoDetalhes() {
   const id    = document.getElementById('det-id').value
-  const valor = parseMoeda(document.getElementById('det-adiantado-input').value)
+  const raw   = document.getElementById('det-adiantado-input').value || '0'
+  const valor = parseFloat(raw.replace(',', '.')) || 0
 
   if (!id) { toast('Pedido não identificado', 'error'); return }
 
-  // Salva diretamente via update — mais confiável que RPC para campo único
   const { error } = await sb.schema(S).from('pedidos')
     .update({ valor_adiantado: valor })
     .eq('id', id)
 
-  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
+  if (error) { toast('Erro ao salvar valor pago: ' + error.message, 'error'); return }
 
-  // Atualiza cache local sem fechar o modal
+  // Atualiza cache local
   const idx = pedidosCarregados.findIndex(x => x.id === id)
   if (idx >= 0) pedidosCarregados[idx].valor_adiantado = valor
 
-  // Atualiza o resumo financeiro na tela sem fechar
+  // Recalcula e re-renderiza o bloco financeiro sem fechar o modal
   const p = pedidosCarregados.find(x => x.id === id)
   if (p) {
-    const adiantado = valor
-    const restante  = (p.total_final || 0) - adiantado
-    const detFinEl  = document.getElementById('det-financeiro')
+    p.valor_adiantado   = valor
+    const adiantado     = valor
+    const restante      = (parseFloat(p.total_final) || 0) - adiantado
+    const detFinEl      = document.getElementById('det-financeiro')
     if (detFinEl) {
-      detFinEl.querySelector
       const rows = detFinEl.querySelectorAll('.det-fin-row')
       rows.forEach(row => {
-        if (row.querySelector('span')?.textContent === 'Valor pago')
-          row.querySelector('span:last-child').textContent = brl(adiantado)
-        if (row.querySelector('span')?.textContent === 'Ainda a receber')
-          row.querySelector('span:last-child').textContent = brl(restante)
+        const label = row.querySelector('span:first-child')?.textContent?.trim()
+        const val   = row.querySelector('span:last-child')
+        if (label === 'Valor pago'       && val) val.textContent = brl(adiantado)
+        if (label === 'Ainda a receber'  && val) val.textContent = brl(restante)
       })
     }
-    document.getElementById('det-adiantado-input').value = valor || ''
   }
 
-  toast('Valor pago atualizado!')
+  toast('Valor pago salvo!')
   loadDashboard()
+  // modal permanece aberto
 }
 
 async function salvarNovoStatus(e) {
@@ -840,6 +834,9 @@ async function abrirModalPedido() {
 }
 
 async function abrirModalEditarPedido(id) {
+  document.querySelectorAll('.dropdown-content.open')
+    .forEach(d => d.classList.remove('open'))
+
   const p = pedidosCarregados.find(x => x.id === id)
   if (!p) { toast('Pedido não encontrado', 'error'); return }
 
