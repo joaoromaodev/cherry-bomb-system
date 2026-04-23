@@ -748,33 +748,51 @@ async function salvarAdiantadoDetalhes() {
   const idPedido = document.getElementById('det-id').value
   if (!idPedido) { toast('Pedido não identificado', 'error'); return }
 
+  const p = pedidosCarregados.find(x => x.id === idPedido)
+  if (!p) { toast('Pedido não encontrado', 'error'); return }
+
   const raw          = document.getElementById('det-adiantado-input').value || '0'
   const valorTratado = parseFloat(raw.replace(',', '.')) || 0
+  const totalPedido  = parseFloat(p.total_final) || 0
+
+  if (valorTratado > totalPedido) {
+    alert('O valor pago não pode ser maior que o total do pedido.')
+    return
+  }
+
+  let novoStatusPagamento
+  if (valorTratado === 0)                                      novoStatusPagamento = 'Aguardando Pagamento'
+  else if (valorTratado > 0 && valorTratado < totalPedido)     novoStatusPagamento = 'Pago Parcialmente'
+  else                                                         novoStatusPagamento = 'Pago Integral'
 
   const { error } = await sb.schema(S).from('pedidos')
-    .update({ valor_adiantado: valorTratado })
+    .update({ valor_adiantado: valorTratado, status_pagamento: novoStatusPagamento })
     .eq('id', idPedido)
 
   if (error) { toast('Erro ao salvar valor pago: ' + error.message, 'error'); return }
 
   // Atualiza cache local
   const idx = pedidosCarregados.findIndex(x => x.id === idPedido)
-  if (idx >= 0) pedidosCarregados[idx].valor_adiantado = valorTratado
+  if (idx >= 0) {
+    pedidosCarregados[idx].valor_adiantado  = valorTratado
+    pedidosCarregados[idx].status_pagamento = novoStatusPagamento
+  }
+
+  // Sincroniza o select de status no modal
+  const selPagto = document.getElementById('det-status-pagamento')
+  if (selPagto) selPagto.value = novoStatusPagamento
 
   // Re-renderiza o bloco financeiro sem fechar o modal
-  const p = pedidosCarregados.find(x => x.id === idPedido)
-  if (p) {
-    p.valor_adiantado = valorTratado
-    const restante    = (parseFloat(p.total_final) || 0) - valorTratado
-    const detFinEl    = document.getElementById('det-financeiro')
-    if (detFinEl) {
-      detFinEl.querySelectorAll('.det-fin-row').forEach(row => {
-        const label = row.querySelector('span:first-child')?.textContent?.trim()
-        const val   = row.querySelector('span:last-child')
-        if (label === 'Valor pago'       && val) val.textContent = brl(valorTratado)
-        if (label === 'Ainda a receber'  && val) val.textContent = brl(restante)
-      })
-    }
+  p.valor_adiantado = valorTratado
+  const restante    = totalPedido - valorTratado
+  const detFinEl    = document.getElementById('det-financeiro')
+  if (detFinEl) {
+    detFinEl.querySelectorAll('.det-fin-row').forEach(row => {
+      const label = row.querySelector('span:first-child')?.textContent?.trim()
+      const val   = row.querySelector('span:last-child')
+      if (label === 'Valor pago'      && val) val.textContent = brl(valorTratado)
+      if (label === 'Ainda a receber' && val) val.textContent = brl(restante)
+    })
   }
 
   toast('Valor pago salvo!')
