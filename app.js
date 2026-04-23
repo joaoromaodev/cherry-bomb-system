@@ -346,6 +346,15 @@ async function loadPedidos(filtroStatus = '') {
   renderPedidos(data)
 }
 
+function calcStatusPagamento(p) {
+  if (p.status_pagamento) return p.status_pagamento
+  const vPago  = parseFloat(p.valor_adiantado) || 0
+  const vTotal = parseFloat(p.total_final)     || 0
+  if (vTotal > 0 && vPago >= vTotal) return 'Pago Integral'
+  if (vPago > 0 && vPago < vTotal)  return 'Pago Parcialmente'
+  return 'Aguardando Pagamento'
+}
+
 function renderPedidos(lista) {
   document.getElementById('pedidos-tbody').innerHTML =
     lista.length
@@ -363,7 +372,7 @@ function renderPedidos(lista) {
               <td class="td-secondary">${p.preco_unitario ? brl(p.preco_unitario) + '/un' : '—'}</td>
               <td class="td-total">${brl(p.total_final)}</td>
               <td>${badgePedido(p.status_pedido)}</td>
-              <td>${badgePagto(p.status_pagamento)}</td>
+              <td>${badgePagto(calcStatusPagamento(p))}</td>
               <td>
                 <div class="dropdown" id="dd-ped-${p.id}">
                   <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-ped-${p.id}')">⋮</button>
@@ -498,7 +507,7 @@ function abrirDetalhesPedido(id) {
   // ── Inputs da seção de status ───────────────────────────────
   document.getElementById('det-adiantado-input').value  = adiantado || ''
   document.getElementById('det-status-pedido').value    = p.status_pedido    || 'Aguardando confirmação'
-  document.getElementById('det-status-pagamento').value = p.status_pagamento || 'Pendente'
+  document.getElementById('det-status-pagamento').textContent = calcStatusPagamento(p)
   document.getElementById('det-data-previsao').value    = p.data_previsao    ? p.data_previsao.split('T')[0] : ''
   document.getElementById('det-codigo-rastreio').value  = p.codigo_rastreio  || ''
 
