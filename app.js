@@ -755,18 +755,20 @@ async function salvarAdiantadoDetalhes() {
   const valorTratado = parseFloat(raw.replace(',', '.')) || 0
   const totalPedido  = parseFloat(p.total_final) || 0
 
-  if (valorTratado > totalPedido) {
-    alert('O valor pago não pode ser maior que o total do pedido.')
+  const vPago  = parseFloat(valorTratado) || 0
+  const vTotal = parseFloat(totalPedido)  || 0
+
+  if (vPago > vTotal) {
+    toast('O valor pago não pode ser maior que o total do pedido.', 'error')
     return
   }
 
-  let novoStatusPagamento
-  if (valorTratado === 0)                                      novoStatusPagamento = 'Aguardando Pagamento'
-  else if (valorTratado > 0 && valorTratado < totalPedido)     novoStatusPagamento = 'Pago Parcialmente'
-  else                                                         novoStatusPagamento = 'Pago Integral'
+  let novoStatusPagamento = 'Aguardando Pagamento'
+  if (vPago >= vTotal && vTotal > 0)       novoStatusPagamento = 'Pago Integral'
+  else if (vPago > 0 && vPago < vTotal)    novoStatusPagamento = 'Pago Parcialmente'
 
   const { error } = await sb.schema(S).from('pedidos')
-    .update({ valor_adiantado: valorTratado, status_pagamento: novoStatusPagamento })
+    .update({ valor_adiantado: vPago, status_pagamento: novoStatusPagamento })
     .eq('id', idPedido)
 
   if (error) { toast('Erro ao salvar valor pago: ' + error.message, 'error'); return }
@@ -774,7 +776,7 @@ async function salvarAdiantadoDetalhes() {
   // Atualiza cache local
   const idx = pedidosCarregados.findIndex(x => x.id === idPedido)
   if (idx >= 0) {
-    pedidosCarregados[idx].valor_adiantado  = valorTratado
+    pedidosCarregados[idx].valor_adiantado  = vPago
     pedidosCarregados[idx].status_pagamento = novoStatusPagamento
   }
 
@@ -783,8 +785,8 @@ async function salvarAdiantadoDetalhes() {
   if (selPagto) selPagto.value = novoStatusPagamento
 
   // Re-renderiza o bloco financeiro sem fechar o modal
-  p.valor_adiantado = valorTratado
-  const restante    = totalPedido - valorTratado
+  p.valor_adiantado = vPago
+  const restante    = vTotal - vPago
   const detFinEl    = document.getElementById('det-financeiro')
   if (detFinEl) {
     detFinEl.querySelectorAll('.det-fin-row').forEach(row => {
