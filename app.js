@@ -1970,14 +1970,13 @@ function toggleDropdown(id) {
   }
 }
 
-// ── Fechar dropdowns ao clicar fora (captura global) ─────────────
+// ── Fechar dropdowns ao clicar fora ou em item do menu ───────────
 document.addEventListener('click', function (e) {
-  // Se o clique não foi dentro de nenhum .dropdown, fecha tudo
-  if (!e.target.closest('.dropdown')) {
+  if (!e.target.closest('.dropdown') || e.target.closest('.dropdown-item')) {
     document.querySelectorAll('.dropdown-content.open')
       .forEach(el => el.classList.remove('open'))
   }
-}, true) // "true" = fase de captura — roda ANTES de qualquer stopPropagation
+}, true) // fase de captura: ignora stopPropagation dos botões filhos
 
 // ── Modais ────────────────────────────────────────────────────────
 function fecharModal(id) {
