@@ -1215,6 +1215,7 @@ tr:hover td      { background: var(--cherry-50); transition: background 0.1s; }
   border-radius: 12px;
   box-shadow: 0 8px 28px rgba(24,8,16,0.14);
   min-width: 160px;
+  max-width: calc(100vw - 24px);
   z-index: 200;
   overflow: hidden;
   padding: 4px 0;
@@ -1377,6 +1378,24 @@ tr:hover td      { background: var(--cherry-50); transition: background 0.1s; }
 
 .det-fin-row.receber span:last-child { color: var(--cherry-dark); font-weight: 800; }
 .det-fin-row.pago    span:last-child { color: #16a34a; font-weight: 700; }
+
+.det-logistica-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.det-logistica-row + .det-logistica-row {
+  border-top: 1px solid var(--cherry-100);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+.det-logistica-row strong { color: var(--cherry-dark); font-weight: 800; }
 
 .det-fin-divider {
   border: none;

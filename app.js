@@ -366,7 +366,7 @@ function renderPedidos(lista) {
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       Ver detalhes
                     </button>
-                    <button class="dropdown-item" onclick="abrirModalEditarPedido('${p.id}')">
+                    <button class="dropdown-item" onclick="event.stopPropagation(); abrirModalEditarPedido('${p.id}')">
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       Editar
                     </button>
@@ -461,6 +461,31 @@ function abrirDetalhesPedido(id) {
     .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
     .join('<br>')
   document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.'
+
+  // Previsão de envio e rastreio
+  const previsaoEl = document.getElementById('det-info-logistica')
+  if (previsaoEl) {
+    const previsaoFmt = p.data_previsao
+      ? new Date(p.data_previsao + 'T12:00:00')
+          .toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' })
+      : null
+
+    const linhaPrevisao = previsaoFmt
+      ? `<div class="det-logistica-row"><span>Previsão de envio</span><strong>${previsaoFmt}</strong></div>`
+      : ''
+
+    const linhaRastreio = p.codigo_rastreio
+      ? `<div class="det-logistica-row"><span>Código de rastreio</span><strong class="code" style="font-size:12px;">${p.codigo_rastreio}</strong></div>`
+      : ''
+
+    if (linhaPrevisao || linhaRastreio) {
+      previsaoEl.style.display = 'block'
+      previsaoEl.innerHTML = linhaPrevisao + linhaRastreio
+    } else {
+      previsaoEl.style.display = 'none'
+      previsaoEl.innerHTML = ''
+    }
+  }
 
   document.getElementById('det-adiantado-input').value      = adiantado || ''
   document.getElementById('det-status-pedido').value        = p.status_pedido    || 'Aguardando confirmação'
@@ -1541,7 +1566,7 @@ async function loadClientes() {
               <div class="dropdown" id="dd-cli-${c.id}">
                 <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-cli-${c.id}')">⋮</button>
                 <div class="dropdown-content">
-                  <button class="dropdown-item" onclick="abrirModalEditarCliente('${c.id}')">
+                  <button class="dropdown-item" onclick="event.stopPropagation(); abrirModalEditarCliente('${c.id}')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Editar
                   </button>
@@ -1739,7 +1764,7 @@ async function loadCompras() {
               <div class="dropdown" id="dd-comp-${c.id}">
                 <button class="btn-icon dropdown-trigger" onclick="toggleDropdown('dd-comp-${c.id}')">⋮</button>
                 <div class="dropdown-content">
-                  <button class="dropdown-item" onclick="abrirModalEditarCompra('${c.id}')">
+                  <button class="dropdown-item" onclick="event.stopPropagation(); abrirModalEditarCompra('${c.id}')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Editar
                   </button>
@@ -1879,25 +1904,25 @@ function toggleDropdown(id) {
     .forEach(el => el.classList.remove('open'))
 
   if (!isOpen) {
-    const rect        = trigger.getBoundingClientRect()
-    const dropW       = 170
-    const spaceRight  = window.innerWidth - rect.right
-    const spaceLeft   = rect.left
+    const rect       = trigger.getBoundingClientRect()
+    const dropW      = 170
+    const margin     = 12
+    const vpW        = window.innerWidth
 
-    content.style.top  = `${rect.bottom + 4}px`
-    content.style.left = ''
+    content.style.top   = `${rect.bottom + 4}px`
+    content.style.left  = ''
     content.style.right = ''
 
-    if (spaceRight >= dropW) {
-      // abre para a esquerda ancorado na direita do trigger
-      content.style.right = `${spaceRight}px`
-    } else if (spaceLeft >= dropW) {
-      // abre para a direita ancorado na esquerda do trigger
-      content.style.left = `${rect.left}px`
+    // tenta abrir para a esquerda (padrão)
+    const rightAncorado = vpW - rect.right
+    if (rightAncorado + rect.width >= dropW) {
+      // ancora na borda direita do trigger
+      const rightVal = vpW - rect.right
+      content.style.right = `${Math.max(margin, rightVal)}px`
     } else {
-      // tela pequena — centraliza com margem de segurança
-      content.style.left  = '12px'
-      content.style.right = '12px'
+      // não tem espaço — ancora na margem esquerda segura
+      const leftVal = Math.min(rect.left, vpW - dropW - margin)
+      content.style.left = `${Math.max(margin, leftVal)}px`
     }
 
     content.classList.add('open')
