@@ -1383,10 +1383,7 @@ async function salvarPedido(e) {
     produto_nome: i.produto_nome || null,
   }))
 
-  const { error: errItens } = await sb.rpc('inserir_itens_pedido', 
-    { itens: JSON.stringify(arrayItens) },
-    { schema: S }
-  )
+  const { error: errItens } = await sb.schema(S).from('itens_pedido').insert(arrayItens)
   if (errItens) console.error('Erro Itens:', errItens)
 
   fecharModal('modal-pedido')
