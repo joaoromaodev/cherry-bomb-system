@@ -963,16 +963,30 @@ async function abrirModalEditarPedido(id) {
   blocoItemCounter = 0
 
   if (itens.length) {
-    // Agrupa por produto_id para recriar um bloco por produto
     const grupos = {}
     itens.forEach(item => {
-      const chave = item.produto_id || item.produto_nome || '__sem_produto__'
+      // Tenta resolver produto_id pelo nome se estiver nulo (registos antigos)
+      let prodId   = item.produto_id   || ''
+      let prodNome = item.produto_nome || ''
+
+      if (!prodId && prodNome) {
+        const encontrado = produtosCarregados.find(x =>
+          x.nome.trim().toLowerCase() === prodNome.trim().toLowerCase()
+        )
+        if (encontrado) prodId = encontrado.id
+      }
+
+      // Último fallback: usa o campo `produto` do pedido pai
+      if (!prodId && !prodNome && p.produto) {
+        const encontrado = produtosCarregados.find(x =>
+          x.nome.trim().toLowerCase() === p.produto.trim().toLowerCase()
+        )
+        if (encontrado) { prodId = encontrado.id; prodNome = encontrado.nome }
+      }
+
+      const chave = prodId || prodNome || '__sem_produto__'
       if (!grupos[chave]) {
-        grupos[chave] = {
-          produto_id:   item.produto_id   || '',
-          produto_nome: item.produto_nome || '',
-          variacoes:    [],
-        }
+        grupos[chave] = { produto_id: prodId, produto_nome: prodNome, variacoes: [] }
       }
       grupos[chave].variacoes.push({
         variacao:   item.variacao,
