@@ -454,9 +454,16 @@ function filtrarPedidos() {
 }
 
 // ── Pedido — atualizar status (edição rápida) ─────────────────────
-function abrirDetalhesPedido(id) {
+async function abrirDetalhesPedido(id) {
   const p = pedidosCarregados.find(x => x.id === id)
   if (!p) return
+
+  // Busca itens frescos para garantir produto_nome e variacao atualizados
+  const { data: itensFrescos } = await sb.schema(S)
+    .from('itens_pedido')
+    .select('*')
+    .eq('pedido_id', id)
+  if (itensFrescos) p.itens_pedido = itensFrescos
 
   document.getElementById('det-id').value             = p.id
   document.getElementById('det-codigo').textContent   = p.codigo || '—'
@@ -953,7 +960,7 @@ async function abrirModalEditarPedido(id) {
   // Busca itens frescos do banco para garantir produto_id e produto_nome
   const { data: itensFrescos } = await sb.schema(S)
     .from('itens_pedido')
-    .select('id, produto_id, produto_nome, variacao, quantidade')
+    .select('*')
     .eq('pedido_id', p.id)
 
   const itens = itensFrescos || p.itens_pedido || []
