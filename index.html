@@ -495,33 +495,24 @@
     <form id="form-pedido" onsubmit="salvarPedido(event)">
       <input type="hidden" id="pedido-id">
 
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label style="display:flex; justify-content:space-between; align-items:center;">
-            Cliente *
-            <button type="button" class="btn-link" style="font-size:11px; font-weight:700;" onclick="abrirModalClienteRapido()">+ Novo cliente</button>
-          </label>
-          <select id="pedido-cliente" required>
-            <option value="">Selecione...</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Produto *</label>
-          <select id="pedido-produto" onchange="onProdutoChange()">
-            <option value="">Selecione o produto...</option>
-          </select>
-        </div>
+      <div class="form-group">
+        <label style="display:flex; justify-content:space-between; align-items:center;">
+          Cliente *
+          <button type="button" class="btn-link" style="font-size:11px; font-weight:700;" onclick="abrirModalClienteRapido()">+ Novo cliente</button>
+        </label>
+        <select id="pedido-cliente" required>
+          <option value="">Selecione...</option>
+        </select>
       </div>
 
       <div class="form-group">
-        <label>Variações e quantidades</label>
-        <div id="variacao-list"></div>
-        <button type="button" class="btn-add-var" onclick="addVariacao()">+ adicionar variação</button>
+        <label>Produtos e variações *</label>
+        <div id="container-itens-pedido"></div>
+        <button type="button" class="btn-add-var" onclick="adicionarBlocoItem()">+ Adicionar produto</button>
       </div>
 
       <div class="calc-box">
         <div class="calc-row"><span>Quantidade total</span><strong id="calc-qtd">—</strong></div>
-        <div class="calc-row"><span>Preço por unidade</span><strong id="calc-preco">—</strong></div>
         <div class="calc-row"><span>Subtotal</span><strong id="calc-subtotal">—</strong></div>
         <div class="calc-divider"></div>
         <div class="calc-row total"><span>Total final</span><strong id="calc-total">—</strong></div>

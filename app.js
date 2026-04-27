@@ -853,9 +853,6 @@ async function abrirModalPedido() {
   document.getElementById('form-pedido').reset()
   document.getElementById('pedido-id').value = ''
   document.querySelector('#modal-pedido .modal-header h2').textContent = 'Novo pedido'
-  produtoAtualVariacoes = []
-  produtoAtualPrecos    = []
-  document.getElementById('variacao-list').innerHTML = ''
 
   const [resClientes, resProdutos] = await Promise.all([
     sb.schema(S).from('clientes').select('id, nome').order('nome'),
@@ -876,15 +873,10 @@ async function abrirModalPedido() {
     })
   }
 
-  document.getElementById('pedido-produto').innerHTML =
-    '<option value="">Selecione o produto...</option>' +
-    (resProdutos.data || []).map(p => `<option value="${p.id}">${p.nome}</option>`).join('')
-
-  addVariacao()
-  addVariacao()
+  document.getElementById('container-itens-pedido').innerHTML = ''
+  blocoItemCounter = 0
+  adicionarBlocoItem()
   recalcPedido()
-  atualizarVisibilidadePrevisao(document.getElementById('pedido-status').value)
-  atualizarVisibilidadeRastreio(document.getElementById('pedido-status').value)
   document.getElementById('modal-pedido').classList.add('open')
 }
 
@@ -914,36 +906,37 @@ async function abrirModalEditarPedido(id) {
     })
   }
 
-  document.getElementById('pedido-produto').innerHTML =
-    '<option value="">Selecione o produto...</option>' +
-    (resProdutos.data || []).map(pr =>
-      `<option value="${pr.id}">${pr.nome}</option>`).join('')
+  document.getElementById('pedido-id').value        = p.id
+  document.getElementById('pedido-cliente').value   = p.cliente_id || ''
+  document.getElementById('pedido-desconto').value  = p.desconto_acrescimo || ''
+  document.getElementById('pedido-frete').value     = p.frete || ''
+  document.getElementById('pedido-obs').value       = p.observacao || ''
+  document.getElementById('pedido-adiantado').value = p.valor_adiantado || ''
 
-  document.getElementById('pedido-id').value          = p.id
-  document.getElementById('pedido-cliente').value     = p.cliente_id || ''
-  document.getElementById('pedido-produto').value     = p.produto_id || ''
-  document.getElementById('pedido-desconto').value    = p.desconto_acrescimo || ''
-  document.getElementById('pedido-frete').value       = p.frete || ''
-  document.getElementById('pedido-obs').value         = p.observacao || ''
-  document.getElementById('pedido-adiantado').value   = p.valor_adiantado || ''
-
-  if (p.produto_id) {
-    const prod = produtosCarregados.find(x => x.id === p.produto_id)
-    produtoAtualVariacoes = (prod?.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
-    produtoAtualPrecos    = (prod?.produto_precos    || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
-  } else {
-    produtoAtualVariacoes = []
-    produtoAtualPrecos    = []
-  }
-
-  const list = document.getElementById('variacao-list')
-  list.innerHTML = ''
+  // Reconstrói blocos agrupando itens_pedido por produto_id
+  const container = document.getElementById('container-itens-pedido')
+  container.innerHTML = ''
+  blocoItemCounter = 0
 
   const itens = p.itens_pedido || []
+
   if (itens.length) {
-    itens.forEach(item => addVariacao(produtoAtualVariacoes, item.variacao, item.quantidade))
+    // Agrupa por produto_id (usa produto_nome como fallback de chave)
+    const grupos = {}
+    itens.forEach(item => {
+      const chave = item.produto_id || item.produto_nome || '__sem_produto__'
+      if (!grupos[chave]) {
+        grupos[chave] = {
+          produto_id:   item.produto_id   || '',
+          produto_nome: item.produto_nome || '',
+          variacoes:    [],
+        }
+      }
+      grupos[chave].variacoes.push({ variacao: item.variacao, quantidade: item.quantidade })
+    })
+    Object.values(grupos).forEach(g => adicionarBlocoItem(g.produto_id, g.variacoes))
   } else {
-    addVariacao(produtoAtualVariacoes)
+    adicionarBlocoItem()
   }
 
   recalcPedido()
@@ -1009,34 +1002,166 @@ function addVariacao(variacoes, selectedValue = '', qtd = '') {
   list.appendChild(div)
 }
 
+// ── Blocos de item (múltiplos produtos) ───────────────────────────
+let blocoItemCounter = 0
+
+function adicionarBlocoItem(produtoIdSel = '', itemsDoBloco = []) {
+  const container = document.getElementById('container-itens-pedido')
+  if (!container) return
+
+  blocoItemCounter++
+  const blocoId = `bloco-item-${blocoItemCounter}`
+
+  const div = document.createElement('div')
+  div.className = 'bloco-item'
+  div.id = blocoId
+  div.style.cssText = 'border:1.5px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; background:var(--card, #fff);'
+
+  const produtosOptions = produtosCarregados
+    .filter(p => p.ativo !== false)
+    .map(p => `<option value="${p.id}" ${p.id === produtoIdSel ? 'selected' : ''}>${p.nome}</option>`)
+    .join('')
+
+  div.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <label style="font-size:12px; font-weight:700; color:var(--cherry-dark); margin:0;">Produto</label>
+      <button type="button" class="btn-rm-var" style="font-size:18px; line-height:1;"
+        onclick="document.getElementById('${blocoId}').remove(); recalcPedido()">×</button>
+    </div>
+    <select class="bloco-produto-select" style="width:100%; margin-bottom:8px;"
+      onchange="onBlocoProdutoChange('${blocoId}')">
+      <option value="">Selecione o produto...</option>
+      ${produtosOptions}
+    </select>
+    <div class="bloco-variacoes-container" id="${blocoId}-vars"></div>
+    <button type="button" class="btn-add-var" style="font-size:11px; margin-top:4px;"
+      onclick="adicionarVarNoBloco('${blocoId}')">+ variação</button>
+    <div id="${blocoId}-subtotal"
+      style="font-size:12px; color:var(--muted); text-align:right; margin-top:6px; font-weight:700;"></div>
+  `
+
+  container.appendChild(div)
+
+  if (produtoIdSel) {
+    const prod = produtosCarregados.find(x => x.id === produtoIdSel)
+    if (prod) {
+      div.dataset.produtoId   = prod.id
+      div.dataset.produtoNome = prod.nome
+      const variacoes = (prod.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
+      if (itemsDoBloco.length) {
+        itemsDoBloco.forEach(item => adicionarVarNoBloco(blocoId, variacoes, item.variacao, item.quantidade))
+      } else {
+        adicionarVarNoBloco(blocoId, variacoes)
+      }
+    }
+  } else {
+    adicionarVarNoBloco(blocoId, [])
+  }
+
+  recalcPedido()
+}
+
+function onBlocoProdutoChange(blocoId) {
+  const bloco = document.getElementById(blocoId)
+  if (!bloco) return
+  const selectProd = bloco.querySelector('.bloco-produto-select')
+  const produtoId  = selectProd?.value || ''
+  const prod       = produtosCarregados.find(x => x.id === produtoId) || null
+
+  bloco.dataset.produtoId   = produtoId
+  bloco.dataset.produtoNome = prod?.nome || ''
+
+  const varsContainer = document.getElementById(`${blocoId}-vars`)
+  if (varsContainer) varsContainer.innerHTML = ''
+
+  const variacoes = (prod?.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
+  adicionarVarNoBloco(blocoId, variacoes)
+  recalcPedido()
+}
+
+function adicionarVarNoBloco(blocoId, variacoes = null, varSelecionada = '', qtdSelecionada = '') {
+  const bloco = document.getElementById(blocoId)
+  if (!bloco) return
+  const varsContainer = document.getElementById(`${blocoId}-vars`)
+  if (!varsContainer) return
+
+  if (variacoes === null) {
+    const prod = produtosCarregados.find(x => x.id === bloco.dataset.produtoId)
+    variacoes  = (prod?.produto_variacoes || []).sort((a, b) => a.nome.localeCompare(b.nome))
+  }
+
+  const div = document.createElement('div')
+  div.className = 'var-row'
+
+  const varInput = variacoes.length
+    ? `<select class="var-nome" oninput="recalcPedido()">
+        <option value="">Selecione...</option>
+        ${variacoes.map(v =>
+          `<option value="${v.nome}" ${v.nome === varSelecionada ? 'selected' : ''}>${v.nome}</option>`
+        ).join('')}
+       </select>`
+    : `<input type="text" placeholder="Variação" class="var-nome"
+        value="${varSelecionada}" oninput="recalcPedido()">`
+
+  div.innerHTML = `
+    ${varInput}
+    <input type="number" placeholder="Qtd" min="0" step="1" class="var-qtd"
+      value="${qtdSelecionada}" oninput="recalcPedido()">
+    <button type="button" class="btn-rm-var"
+      onclick="this.parentElement.remove(); recalcPedido()">×</button>
+  `
+  varsContainer.appendChild(div)
+  recalcPedido()
+}
+
 function parseMoeda(val) {
   if (!val) return 0
   return parseFloat(String(val).replace(',', '.')) || 0
 }
 
 function recalcPedido() {
-  const qtds     = Array.from(document.querySelectorAll('.var-qtd')).map(i => parseInt(i.value) || 0)
-  const qtdTotal = qtds.reduce((a, b) => a + b, 0)
-  const preco    = calcPreco(qtdTotal)
+  const blocos        = Array.from(document.querySelectorAll('#container-itens-pedido .bloco-item'))
+  let   grandSubtotal = 0
+  let   grandQtd      = 0
+
+  blocos.forEach(bloco => {
+    const prod   = produtosCarregados.find(x => x.id === bloco.dataset.produtoId) || null
+    const precos = (prod?.produto_precos || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
+
+    const blocoQtd = Array.from(bloco.querySelectorAll('.var-row'))
+      .reduce((s, row) => s + (parseInt(row.querySelector('.var-qtd')?.value) || 0), 0)
+
+    let preco = null
+    if (precos.length > 0 && blocoQtd > 0) {
+      const aplicaveis = precos.filter(p => blocoQtd >= p.qtd_minima)
+      if (aplicaveis.length)
+        preco = parseFloat(aplicaveis.reduce((best, p) => p.qtd_minima > best.qtd_minima ? p : best).preco_unitario)
+    }
+
+    const blocoSubtotal = preco ? blocoQtd * preco : 0
+    grandQtd      += blocoQtd
+    grandSubtotal += blocoSubtotal
+
+    const subtotalEl = document.getElementById(`${bloco.id}-subtotal`)
+    if (subtotalEl) {
+      if (!bloco.dataset.produtoId || blocoQtd === 0) {
+        subtotalEl.textContent = ''
+      } else if (!preco) {
+        const minQtd = precos.length ? Math.min(...precos.map(p => p.qtd_minima)) : 1
+        subtotalEl.innerHTML = `<span style="color:#b45309;">⚠ mín. ${minQtd} un</span>`
+      } else {
+        subtotalEl.textContent = `${blocoQtd} un × ${brl(preco)} = ${brl(blocoSubtotal)}`
+      }
+    }
+  })
+
   const desconto = parseMoeda(document.getElementById('pedido-desconto')?.value)
   const frete    = parseMoeda(document.getElementById('pedido-frete')?.value)
-  const subtotal = preco ? qtdTotal * preco : 0
-  const total    = subtotal + desconto + frete
+  const total    = grandSubtotal + desconto + frete
 
-  document.getElementById('calc-qtd').textContent =
-    qtdTotal > 0 ? `${qtdTotal} un` : '—'
-
-  const minQtd = produtoAtualPrecos.length > 0
-    ? Math.min(...produtoAtualPrecos.map(p => p.qtd_minima))
-    : 10
-
-  document.getElementById('calc-preco').textContent =
-    qtdTotal === 0 ? '—'
-    : !preco       ? `⚠ mínimo: ${minQtd} un`
-    :                `${brl(preco)}/un`
-
-  document.getElementById('calc-subtotal').textContent = subtotal > 0 ? brl(subtotal) : '—'
-  document.getElementById('calc-total').textContent    = subtotal > 0 ? brl(total)    : '—'
+  document.getElementById('calc-qtd').textContent      = grandQtd > 0      ? `${grandQtd} un` : '—'
+  document.getElementById('calc-subtotal').textContent = grandSubtotal > 0  ? brl(grandSubtotal) : '—'
+  document.getElementById('calc-total').textContent    = grandSubtotal > 0  ? brl(total) : '—'
 }
 
 async function salvarPedido(e) {
@@ -1046,89 +1171,122 @@ async function salvarPedido(e) {
   const selCli      = document.getElementById('pedido-cliente')
   const clienteId   = selCli.value
   const clienteNome = selCli.selectedOptions[0]?.dataset.nome || ''
-  const selProd     = document.getElementById('pedido-produto')
-  const produtoId   = selProd.value || null
-  const produtoNome = selProd.selectedOptions[0]?.textContent || ''
 
-  const variacoes = Array.from(document.querySelectorAll('.var-row'))
-    .map(row => ({
-      variacao:   row.querySelector('.var-nome').value.trim(),
-      quantidade: parseInt(row.querySelector('.var-qtd').value) || 0,
-    }))
-    .filter(v => v.variacao && v.quantidade > 0)
+  if (!clienteId) { toast('Selecione um cliente', 'error'); return }
 
-  const qtdTotal = variacoes.reduce((s, v) => s + v.quantidade, 0)
-  const preco    = calcPreco(qtdTotal)
+  // ── Coleta todos os itens de todos os blocos ──────────────────
+  const todosBlocos = Array.from(document.querySelectorAll('#container-itens-pedido .bloco-item'))
+  const todosItens  = []
 
-  const minQtd = produtoAtualPrecos.length > 0
-    ? Math.min(...produtoAtualPrecos.map(p => p.qtd_minima))
-    : 10
+  todosBlocos.forEach(bloco => {
+    const produtoId   = bloco.dataset.produtoId   || null
+    const produtoNome = bloco.dataset.produtoNome || ''
+    bloco.querySelectorAll('.var-row').forEach(row => {
+      const variacao   = row.querySelector('.var-nome')?.value?.trim() || ''
+      const quantidade = parseInt(row.querySelector('.var-qtd')?.value) || 0
+      if (variacao && quantidade > 0)
+        todosItens.push({ produto_id: produtoId, produto_nome: produtoNome, variacao, quantidade })
+    })
+  })
 
-  if (!clienteId)        { toast('Selecione um cliente', 'error'); return }
-  if (!produtoId)        { toast('Selecione um produto', 'error'); return }
-  if (!variacoes.length) { toast('Adicione pelo menos uma variação com quantidade', 'error'); return }
-  if (qtdTotal < minQtd) { toast(`Pedido mínimo: ${minQtd} unidades`, 'error'); return }
+  if (!todosItens.length) {
+    toast('Adicione pelo menos um produto com variação e quantidade', 'error')
+    return
+  }
 
+  // ── Calcula subtotal por bloco (cada produto usa sua própria faixa) ──
+  let grandSubtotal = 0
+  let hasError      = false
+
+  for (const bloco of todosBlocos) {
+    const produtoId = bloco.dataset.produtoId
+    const prod      = produtosCarregados.find(x => x.id === produtoId) || null
+    const precos    = (prod?.produto_precos || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
+
+    const blocoQtd = Array.from(bloco.querySelectorAll('.var-row'))
+      .reduce((s, row) => s + (parseInt(row.querySelector('.var-qtd')?.value) || 0), 0)
+
+    if (blocoQtd === 0) continue
+
+    if (!produtoId) { toast('Selecione um produto em cada bloco', 'error'); hasError = true; break }
+
+    if (precos.length > 0) {
+      const minQtd     = Math.min(...precos.map(p => p.qtd_minima))
+      if (blocoQtd < minQtd) {
+        toast(`Quantidade mínima para "${bloco.dataset.produtoNome}" é ${minQtd} un`, 'error')
+        hasError = true
+        break
+      }
+      const aplicaveis = precos.filter(p => blocoQtd >= p.qtd_minima)
+      if (aplicaveis.length) {
+        const preco = parseFloat(aplicaveis.reduce((best, p) => p.qtd_minima > best.qtd_minima ? p : best).preco_unitario)
+        grandSubtotal += blocoQtd * preco
+      }
+    }
+  }
+
+  if (hasError) return
+
+  const qtdTotal       = todosItens.reduce((s, i) => s + i.quantidade, 0)
   const desconto       = parseMoeda(document.getElementById('pedido-desconto').value)
   const frete          = parseMoeda(document.getElementById('pedido-frete').value)
-  const subtotal       = preco * qtdTotal
-  const total          = subtotal + desconto + frete
+  const total          = grandSubtotal + desconto + frete
   const valorAdiantado = parseMoeda(document.getElementById('pedido-adiantado').value)
 
+  // Nome do produto para a coluna resumo da tabela pedidos
+  const nomesUnicos = [...new Set(todosItens.map(i => i.produto_nome).filter(Boolean))]
+  const produtoStr  = nomesUnicos.length > 0 ? nomesUnicos.join(', ') : '—'
+
+  // Status de pagamento calculado
+  const vPago  = parseFloat(valorAdiantado) || 0
+  const vTotal = parseFloat(total)          || 0
+  let statusPagto = 'Aguardando Pagamento'
+  if (vTotal > 0 && vPago >= vTotal)    statusPagto = 'Pago Integral'
+  else if (vPago > 0 && vPago < vTotal) statusPagto = 'Pago Parcialmente'
+
   if (editId) {
-    // ── UPDATE — apenas campos editáveis, sem tocar em status ───
+    // ── UPDATE — sem tocar em status_pedido ─────────────────────
     const payloadEdicao = {
       cliente_id:         clienteId,
       cliente_nome:       clienteNome,
-      produto:            produtoNome,
+      produto:            produtoStr,
       qtd_total:          qtdTotal,
-      preco_unitario:     preco,
-      subtotal:           subtotal,
+      preco_unitario:     null,
+      subtotal:           grandSubtotal,
       desconto_acrescimo: desconto,
       frete:              frete,
       total_final:        total,
       observacao:         document.getElementById('pedido-obs').value.trim(),
+      valor_adiantado:    vPago,
+      status_pagamento:   statusPagto,
     }
 
     const { error } = await sb.schema(S).from('pedidos').update(payloadEdicao).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
-    // Calcula status de pagamento baseado no valor adiantado
-    const pedidoAtual = pedidosCarregados.find(x => x.id === editId)
-    const vTotal      = parseFloat(total)          || 0
-    const vPago       = parseFloat(valorAdiantado) || 0
-    let   statusPagto = 'Aguardando Pagamento'
-    if (vTotal > 0 && vPago >= vTotal)      statusPagto = 'Pago Integral'
-    else if (vPago > 0 && vPago < vTotal)   statusPagto = 'Pago Parcialmente'
-
-    await sb.schema(S).from('pedidos').update({
-      valor_adiantado:  vPago,
-      produto_id:       produtoId,
-      status_pagamento: statusPagto,
-    }).eq('id', editId)
-
     await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
-    if (variacoes.length)
+    if (todosItens.length)
       await sb.schema(S).from('itens_pedido').insert(
-        variacoes.map(v => ({ ...v, pedido_id: editId }))
+        todosItens.map(i => ({ ...i, pedido_id: editId }))
       )
 
     toast('Pedido atualizado com sucesso!')
 
   } else {
-    // ── INSERT — status inicial definido aqui ───────────────────
+    // ── INSERT ──────────────────────────────────────────────────
     const payloadInsert = {
       cliente_id:         clienteId,
       cliente_nome:       clienteNome,
-      produto:            produtoNome,
+      produto:            produtoStr,
       qtd_total:          qtdTotal,
-      preco_unitario:     preco,
-      subtotal:           subtotal,
+      preco_unitario:     null,
+      subtotal:           grandSubtotal,
       desconto_acrescimo: desconto,
       frete:              frete,
       total_final:        total,
       status_pedido:      'Aguardando confirmação',
-      status_pagamento:   'Aguardando Pagamento',
+      status_pagamento:   statusPagto,
+      valor_adiantado:    vPago,
       observacao:         document.getElementById('pedido-obs').value.trim(),
       data_pedido:        new Date().toISOString().split('T')[0],
     }
@@ -1137,17 +1295,9 @@ async function salvarPedido(e) {
       .insert(payloadInsert).select().single()
     if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
-    await sb.rpc('atualizar_pedido_extra', {
-      p_id:              pedido.id,
-      p_valor_adiantado: valorAdiantado,
-      p_produto_id:      produtoId,
-      p_data_previsao:   null,
-      p_codigo_rastreio: null,
-    })
-
-    if (variacoes.length)
+    if (todosItens.length)
       await sb.schema(S).from('itens_pedido').insert(
-        variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
+        todosItens.map(i => ({ ...i, pedido_id: pedido.id }))
       )
 
     toast(`Pedido ${pedido.codigo} criado!`)
@@ -2104,6 +2254,9 @@ window.confirmarExclusaoLancamento  = confirmarExclusaoLancamento
 window.salvarLancamento             = salvarLancamento
 window.abrirModalClienteRapido      = abrirModalClienteRapido
 window.onProdutoChange              = onProdutoChange
+window.adicionarBlocoItem           = adicionarBlocoItem
+window.adicionarVarNoBloco          = adicionarVarNoBloco
+window.onBlocoProdutoChange         = onBlocoProdutoChange
 window.abrirModalProduto            = abrirModalProduto
 window.abrirModalEditarProduto      = abrirModalEditarProduto
 window.abrirModalExcluirProduto     = abrirModalExcluirProduto
