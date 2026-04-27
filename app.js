@@ -305,7 +305,7 @@ let pedidosCarregados = [];
 
 async function loadPedidos(filtroStatus = '') {
   let query = sb.schema(S).from('pedidos')
-    .select('*, itens_pedido(id, produto_id, produto_nome, variacao, quantidade)')
+    .select('*, itens_pedido(*)')
     .order('created_at', { ascending: false })
 
   if (filtroStatus) query = query.eq('status_pedido', filtroStatus)
