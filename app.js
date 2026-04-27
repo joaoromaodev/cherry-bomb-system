@@ -523,7 +523,7 @@ function abrirDetalhesPedido(id) {
     const linhasHtml = linhas
       .map(i => `<div style="margin-left:8px; margin-top:2px;">↳ <strong>${i.quantidade ?? '?'} un</strong> — ${i.variacao || '—'}</div>`)
       .join('')
-    return `<div style="margin-bottom:6px;"><span style="font-weight:800; color:var(--cherry-dark);">🍒 ${nomeProd}</span>${linhasHtml}</div>`
+    return `<div style="margin-bottom:6px;"><span style="font-weight:800; color:var(--cherry-dark);">${nomeProd}</span>${linhasHtml}</div>`
   }).join('')
 
   document.getElementById('det-variacoes').innerHTML = varHtml || 'Sem variações registradas.'
