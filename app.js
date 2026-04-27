@@ -1074,6 +1074,8 @@ async function salvarPedido(e) {
 
   if (editId) {
     // ── UPDATE ──────────────────────────────────────────────────
+    delete pedidoPayload.status_pedido
+    delete pedidoPayload.status_pagamento
     const { error } = await sb.schema(S).from('pedidos').update(pedidoPayload).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
