@@ -356,11 +356,23 @@ function calcStatusPagamento(p) {
 }
 
 function renderPedidos(lista) {
+  // ── Mini-cards ──────────────────────────────────────────────────
+  const somaTotal = lista.reduce((s, p) => s + (parseFloat(p.total_final)     || 0), 0)
+  const somaPago  = lista.reduce((s, p) => s + (parseFloat(p.valor_adiantado) || 0), 0)
+  const somaRec   = somaTotal - somaPago
+  const mcTotal   = document.getElementById('mc-total-pedidos')
+  const mcPago    = document.getElementById('mc-total-pago')
+  const mcRec     = document.getElementById('mc-a-receber')
+  if (mcTotal) mcTotal.textContent = brl(somaTotal)
+  if (mcPago)  mcPago.textContent  = brl(somaPago)
+  if (mcRec)   mcRec.textContent   = brl(somaRec)
+
   document.getElementById('pedidos-tbody').innerHTML =
     lista.length
       ? lista.map(p => {
-          const varStr = (p.itens_pedido || [])
+          const varStr    = (p.itens_pedido || [])
             .map(i => `${i.quantidade} ${i.variacao}`).join(', ')
+          const vPago     = parseFloat(p.valor_adiantado) || 0
           return `
             <tr>
               <td><span class="code">${p.codigo || '—'}</span></td>
@@ -371,6 +383,7 @@ function renderPedidos(lista) {
               <td class="td-secondary"><strong>${p.qtd_total || 0}</strong> un</td>
               <td class="td-secondary">${p.preco_unitario ? brl(p.preco_unitario) + '/un' : '—'}</td>
               <td class="td-total">${brl(p.total_final)}</td>
+              <td class="td-secondary" style="color:#16a34a; font-weight:700;">${vPago > 0 ? brl(vPago) : '—'}</td>
               <td>${badgePedido(p.status_pedido)}</td>
               <td>${badgePagto(calcStatusPagamento(p))}</td>
               <td>
@@ -394,7 +407,7 @@ function renderPedidos(lista) {
               </td>
             </tr>`
         }).join('')
-      : '<tr><td colspan="11" class="empty">Nenhum pedido encontrado</td></tr>'
+      : '<tr><td colspan="12" class="empty">Nenhum pedido encontrado</td></tr>'
 }
 
 function filtrarPedidos() {
@@ -1844,6 +1857,11 @@ async function loadCompras() {
   if (error) { toast('Erro ao carregar compras: ' + error.message, 'error'); return }
 
   comprasCarregadas = data;
+
+  // ── Mini-card de custos ─────────────────────────────────────────
+  const totalCustos = data.reduce((s, c) => s + (parseFloat(c.valor) || 0), 0)
+  const mcCustos    = document.getElementById('mc-total-custos')
+  if (mcCustos) mcCustos.textContent = brl(totalCustos)
 
   document.getElementById('compras-tbody').innerHTML =
     data.length

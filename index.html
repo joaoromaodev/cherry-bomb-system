@@ -188,6 +188,21 @@
       <button class="btn-primary" onclick="abrirModalPedido()">+ Novo pedido</button>
     </div>
 
+    <div class="mini-cards" id="pedidos-mini-cards" style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+      <div class="mini-card" style="flex:1; min-width:140px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 16px;">
+        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">Soma dos Pedidos</span>
+        <div id="mc-total-pedidos" style="font-size:18px; font-weight:800; color:var(--text); margin-top:4px;">—</div>
+      </div>
+      <div class="mini-card" style="flex:1; min-width:140px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 16px;">
+        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">Total Pago</span>
+        <div id="mc-total-pago" style="font-size:18px; font-weight:800; color:#16a34a; margin-top:4px;">—</div>
+      </div>
+      <div class="mini-card" style="flex:1; min-width:140px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 16px;">
+        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">A Receber</span>
+        <div id="mc-a-receber" style="font-size:18px; font-weight:800; color:var(--cherry-dark); margin-top:4px;">—</div>
+      </div>
+    </div>
+
     <div class="filter-bar">
       <div class="search-wrap">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -221,7 +236,7 @@
             <tr>
               <th>Código</th><th>Data</th><th>Cliente</th><th>Produto</th>
               <th>Variações</th><th>Qtd</th><th>Preço</th><th>Total</th>
-              <th>Pedido</th><th>Pagamento</th><th></th>
+              <th>Pago</th><th>Pedido</th><th>Pagamento</th><th></th>
             </tr>
           </thead>
           <tbody id="pedidos-tbody">
@@ -443,6 +458,13 @@
         <span class="page-sub">Controle de gastos</span>
       </div>
       <button class="btn-primary" onclick="abrirModalCompra()">+ Nova compra</button>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-bottom:16px;">
+      <div style="flex:1; max-width:220px; background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 16px;">
+        <span style="font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;">Total de Custos</span>
+        <div id="mc-total-custos" style="font-size:18px; font-weight:800; color:#991b1b; margin-top:4px;">—</div>
+      </div>
     </div>
 
     <div class="card">
