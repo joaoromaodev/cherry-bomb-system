@@ -305,7 +305,7 @@ let pedidosCarregados = [];
 
 async function loadPedidos(filtroStatus = '') {
   let query = sb.schema(S).from('pedidos')
-    .select('*, itens_pedido(*)')
+    .select('*, itens_pedido(id, produto_id, produto_nome, variacao, quantidade)')
     .order('created_at', { ascending: false })
 
   if (filtroStatus) query = query.eq('status_pedido', filtroStatus)
@@ -374,18 +374,35 @@ function renderPedidos(lista) {
   document.getElementById('pedidos-tbody').innerHTML =
     lista.length
       ? lista.map(p => {
-          const varStr    = (p.itens_pedido || [])
-            .map(i => `${i.quantidade} ${i.variacao}`).join(', ')
-          const vPago     = parseFloat(p.valor_adiantado) || 0
+          const itens = p.itens_pedido || []
+
+          // Coluna Produtos: agrupa por produto_nome mostrando qtd total por produto
+          const produtosPorNome = {}
+          itens.forEach(i => {
+            const nome = i.produto_nome || p.produto || '—'
+            produtosPorNome[nome] = (produtosPorNome[nome] || 0) + (i.quantidade || 0)
+          })
+          const produtoStr = Object.keys(produtosPorNome).length
+            ? Object.entries(produtosPorNome)
+                .map(([nome, qtd]) => `<span style="display:block;">${qtd}× ${nome}</span>`)
+                .join('')
+            : (p.produto || '—')
+
+          // Coluna Variações
+          const varStr = itens.length
+            ? itens.map(i => `<span style="display:block;">${i.variacao || '—'}</span>`).join('')
+            : '—'
+
+          const vPago = parseFloat(p.valor_adiantado) || 0
+
           return `
             <tr>
               <td><span class="code">${p.codigo || '—'}</span></td>
               <td class="td-secondary">${fmtData(p.data_pedido)}</td>
               <td class="td-cliente">${p.cliente_nome || '—'}</td>
-              <td class="td-secondary">${p.produto || '—'}</td>
-              <td class="vars">${varStr || '—'}</td>
+              <td class="td-secondary" style="font-size:12px;">${produtoStr}</td>
+              <td class="vars" style="font-size:12px;">${varStr}</td>
               <td class="td-secondary"><strong>${p.qtd_total || 0}</strong> un</td>
-              <td class="td-secondary">${p.preco_unitario ? brl(p.preco_unitario) + '/un' : '—'}</td>
               <td class="td-total">${brl(p.total_final)}</td>
               <td class="td-secondary" style="color:#16a34a; font-weight:700;">${vPago > 0 ? brl(vPago) : '—'}</td>
               <td>${badgePedido(p.status_pedido)}</td>
@@ -411,7 +428,7 @@ function renderPedidos(lista) {
               </td>
             </tr>`
         }).join('')
-      : '<tr><td colspan="12" class="empty">Nenhum pedido encontrado</td></tr>'
+      : '<tr><td colspan="11" class="empty">Nenhum pedido encontrado</td></tr>'
 }
 
 function filtrarPedidos() {
@@ -490,11 +507,23 @@ function abrirDetalhesPedido(id) {
     </div>
   `
 
-  // ── Variações ───────────────────────────────────────────────
-  const varStr = (p.itens_pedido || [])
-    .map(i => `<strong>${i.quantidade} un</strong> — ${i.variacao}`)
-    .join('<br>')
-  document.getElementById('det-variacoes').innerHTML = varStr || 'Sem variações registradas.'
+  /// ── O que produzir (itens_pedido com produto + variação + qtd) ──
+  const itens = p.itens_pedido || []
+  const itensPorProduto = {}
+  itens.forEach(i => {
+    const chave = i.produto_nome || p.produto || 'Produto'
+    if (!itensPorProduto[chave]) itensPorProduto[chave] = []
+    itensPorProduto[chave].push(i)
+  })
+
+  const varHtml = Object.entries(itensPorProduto).map(([nomeProd, linhas]) => {
+    const linhasHtml = linhas
+      .map(i => `<div style="margin-left:8px; margin-top:2px;">↳ <strong>${i.quantidade} un</strong> — ${i.variacao || '—'}</div>`)
+      .join('')
+    return `<div style="margin-bottom:6px;"><span style="font-weight:800; color:var(--cherry-dark);">🍒 ${nomeProd}</span>${linhasHtml}</div>`
+  }).join('')
+
+  document.getElementById('det-variacoes').innerHTML = varHtml || 'Sem variações registradas.'
 
   // ── Logística (previsão + rastreio) — aparece ANTES das observações ──
   const previsaoEl = document.getElementById('det-info-logistica')
@@ -913,15 +942,28 @@ async function abrirModalEditarPedido(id) {
   document.getElementById('pedido-obs').value       = p.observacao || ''
   document.getElementById('pedido-adiantado').value = p.valor_adiantado || ''
 
-  // Reconstrói blocos agrupando itens_pedido por produto_id
+  // Garante que produtosCarregados está populado antes de criar blocos
+  if (resProdutos.data) {
+    resProdutos.data.forEach(pr => {
+      const idx = produtosCarregados.findIndex(x => x.id === pr.id)
+      idx >= 0 ? produtosCarregados[idx] = pr : produtosCarregados.push(pr)
+    })
+  }
+
+  // Busca itens frescos do banco para garantir produto_id e produto_nome
+  const { data: itensFrescos } = await sb.schema(S)
+    .from('itens_pedido')
+    .select('id, produto_id, produto_nome, variacao, quantidade')
+    .eq('pedido_id', p.id)
+
+  const itens = itensFrescos || p.itens_pedido || []
+
   const container = document.getElementById('container-itens-pedido')
   container.innerHTML = ''
   blocoItemCounter = 0
 
-  const itens = p.itens_pedido || []
-
   if (itens.length) {
-    // Agrupa por produto_id (usa produto_nome como fallback de chave)
+    // Agrupa por produto_id para recriar um bloco por produto
     const grupos = {}
     itens.forEach(item => {
       const chave = item.produto_id || item.produto_nome || '__sem_produto__'
@@ -932,7 +974,10 @@ async function abrirModalEditarPedido(id) {
           variacoes:    [],
         }
       }
-      grupos[chave].variacoes.push({ variacao: item.variacao, quantidade: item.quantidade })
+      grupos[chave].variacoes.push({
+        variacao:   item.variacao,
+        quantidade: item.quantidade,
+      })
     })
     Object.values(grupos).forEach(g => adicionarBlocoItem(g.produto_id, g.variacoes))
   } else {
