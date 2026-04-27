@@ -872,7 +872,6 @@ async function abrirModalPedido() {
 }
 
 async function abrirModalEditarPedido(id) {
-  // Fecha qualquer dropdown aberto antes de qualquer coisa
   document.querySelectorAll('.dropdown-content.open')
     .forEach(d => d.classList.remove('open'))
 
@@ -900,17 +899,16 @@ async function abrirModalEditarPedido(id) {
 
   document.getElementById('pedido-produto').innerHTML =
     '<option value="">Selecione o produto...</option>' +
-    (resProdutos.data || []).map(pr => `<option value="${pr.id}">${pr.nome}</option>`).join('')
+    (resProdutos.data || []).map(pr =>
+      `<option value="${pr.id}">${pr.nome}</option>`).join('')
 
-  document.getElementById('pedido-id').value           = p.id
-  document.getElementById('pedido-cliente').value      = p.cliente_id || ''
-  document.getElementById('pedido-produto').value      = p.produto_id || ''
-  document.getElementById('pedido-desconto').value     = p.desconto_acrescimo || ''
-  document.getElementById('pedido-frete').value        = p.frete || ''
-  document.getElementById('pedido-status').value       = p.status_pedido    || 'Aguardando confirmação'
-  document.getElementById('pedido-status-pgto').value  = p.status_pagamento || 'Pendente'
-  document.getElementById('pedido-obs').value          = p.observacao || ''
-  document.getElementById('pedido-adiantado').value    = p.valor_adiantado || ''
+  document.getElementById('pedido-id').value          = p.id
+  document.getElementById('pedido-cliente').value     = p.cliente_id || ''
+  document.getElementById('pedido-produto').value     = p.produto_id || ''
+  document.getElementById('pedido-desconto').value    = p.desconto_acrescimo || ''
+  document.getElementById('pedido-frete').value       = p.frete || ''
+  document.getElementById('pedido-obs').value         = p.observacao || ''
+  document.getElementById('pedido-adiantado').value   = p.valor_adiantado || ''
 
   if (p.produto_id) {
     const prod = produtosCarregados.find(x => x.id === p.produto_id)
@@ -923,10 +921,13 @@ async function abrirModalEditarPedido(id) {
 
   const list = document.getElementById('variacao-list')
   list.innerHTML = ''
+
   const itens = p.itens_pedido || []
-  itens.length
-    ? itens.forEach(item => addVariacao(produtoAtualVariacoes, item.variacao, item.quantidade))
-    : addVariacao(produtoAtualVariacoes)
+  if (itens.length) {
+    itens.forEach(item => addVariacao(produtoAtualVariacoes, item.variacao, item.quantidade))
+  } else {
+    addVariacao(produtoAtualVariacoes)
+  }
 
   recalcPedido()
   document.querySelector('#modal-pedido .modal-header h2').textContent = `Editar Pedido ${p.codigo || ''}`
@@ -1057,26 +1058,22 @@ async function salvarPedido(e) {
   const total          = subtotal + desconto + frete
   const valorAdiantado = parseMoeda(document.getElementById('pedido-adiantado').value)
 
-  const pedidoPayload = {
-    cliente_id:          clienteId,
-    cliente_nome:        clienteNome,
-    produto:             produtoNome,
-    qtd_total:           qtdTotal,
-    preco_unitario:      preco,
-    subtotal:            subtotal,
-    desconto_acrescimo:  desconto,
-    frete:               frete,
-    total_final:         total,
-    status_pedido:       'Aguardando confirmação',
-    status_pagamento:    'Pendente',
-    observacao:          document.getElementById('pedido-obs').value.trim(),
-  }
-
   if (editId) {
-    // ── UPDATE ──────────────────────────────────────────────────
-    delete pedidoPayload.status_pedido
-    delete pedidoPayload.status_pagamento
-    const { error } = await sb.schema(S).from('pedidos').update(pedidoPayload).eq('id', editId)
+    // ── UPDATE — apenas campos editáveis, sem tocar em status ───
+    const payloadEdicao = {
+      cliente_id:         clienteId,
+      cliente_nome:       clienteNome,
+      produto:            produtoNome,
+      qtd_total:          qtdTotal,
+      preco_unitario:     preco,
+      subtotal:           subtotal,
+      desconto_acrescimo: desconto,
+      frete:              frete,
+      total_final:        total,
+      observacao:         document.getElementById('pedido-obs').value.trim(),
+    }
+
+    const { error } = await sb.schema(S).from('pedidos').update(payloadEdicao).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
     await sb.rpc('atualizar_pedido_extra', {
@@ -1089,15 +1086,32 @@ async function salvarPedido(e) {
 
     await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
     if (variacoes.length)
-      await sb.schema(S).from('itens_pedido').insert(variacoes.map(v => ({ ...v, pedido_id: editId })))
+      await sb.schema(S).from('itens_pedido').insert(
+        variacoes.map(v => ({ ...v, pedido_id: editId }))
+      )
 
     toast('Pedido atualizado com sucesso!')
 
   } else {
-    // ── INSERT ──────────────────────────────────────────────────
-    pedidoPayload.data_pedido = new Date().toISOString().split('T')[0]
+    // ── INSERT — status inicial definido aqui ───────────────────
+    const payloadInsert = {
+      cliente_id:         clienteId,
+      cliente_nome:       clienteNome,
+      produto:            produtoNome,
+      qtd_total:          qtdTotal,
+      preco_unitario:     preco,
+      subtotal:           subtotal,
+      desconto_acrescimo: desconto,
+      frete:              frete,
+      total_final:        total,
+      status_pedido:      'Aguardando confirmação',
+      status_pagamento:   'Aguardando Pagamento',
+      observacao:         document.getElementById('pedido-obs').value.trim(),
+      data_pedido:        new Date().toISOString().split('T')[0],
+    }
 
-    const { data: pedido, error } = await sb.schema(S).from('pedidos').insert(pedidoPayload).select().single()
+    const { data: pedido, error } = await sb.schema(S).from('pedidos')
+      .insert(payloadInsert).select().single()
     if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return }
 
     await sb.rpc('atualizar_pedido_extra', {
@@ -1109,7 +1123,9 @@ async function salvarPedido(e) {
     })
 
     if (variacoes.length)
-      await sb.schema(S).from('itens_pedido').insert(variacoes.map(v => ({ ...v, pedido_id: pedido.id })))
+      await sb.schema(S).from('itens_pedido').insert(
+        variacoes.map(v => ({ ...v, pedido_id: pedido.id }))
+      )
 
     toast(`Pedido ${pedido.codigo} criado!`)
   }
