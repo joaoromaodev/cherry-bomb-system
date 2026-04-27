@@ -180,10 +180,9 @@ async function loadDashboard() {
 
   document.getElementById('stat-total').textContent         = total
   // ── Alteração 2: mostra qtd + valor retido nos orçamentos ──────
-  document.getElementById('stat-aguardando').innerHTML =
-    aguardandoQtd > 0
-      ? `${aguardandoQtd}<span style="display:block; font-size:1rem; font-weight:500; margin-top:5px; color:#555;">(${brl(aguardandoVal)})</span>`
-      : '0'
+  document.getElementById('stat-aguardando').textContent = aguardandoQtd > 0 ? aguardandoQtd : '0'
+  const statAguardandoSub = document.getElementById('stat-aguardando')?.closest('.stat-card')?.querySelector('.stat-sub')
+  if (statAguardandoSub) statAguardandoSub.textContent = aguardandoQtd > 0 ? brl(aguardandoVal) : ''
   document.getElementById('stat-fat').textContent           = brl(faturamento)
   document.getElementById('stat-prod').textContent          = emProd
   document.getElementById('stat-prod-val').textContent      = brl(prodVal)
