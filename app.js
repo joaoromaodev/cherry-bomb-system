@@ -380,7 +380,7 @@ function renderPedidos(lista) {
           const produtosPorNome = {}
           itens.forEach(i => {
             const nome = i.produto_nome || p.produto || '—'
-            produtosPorNome[nome] = (produtosPorNome[nome] || 0) + (i.quantidade || 0)
+            produtosPorNome[nome] = (produtosPorNome[nome] || 0) + (parseInt(i.quantidade) || 0)
           })
           const produtoStr = Object.keys(produtosPorNome).length
             ? Object.entries(produtosPorNome)
@@ -454,16 +454,12 @@ function filtrarPedidos() {
 }
 
 // ── Pedido — atualizar status (edição rápida) ─────────────────────
-async function abrirDetalhesPedido(id) {
+function abrirDetalhesPedido(id) {
   const p = pedidosCarregados.find(x => x.id === id)
   if (!p) return
 
-  // Busca itens frescos para garantir produto_nome e variacao atualizados
-  const { data: itensFrescos } = await sb.schema(S)
-    .from('itens_pedido')
-    .select('*')
-    .eq('pedido_id', id)
-  if (itensFrescos) p.itens_pedido = itensFrescos
+  console.log('Dados do Pedido:', p)
+  console.log('Itens do Pedido:', p.itens_pedido)
 
   document.getElementById('det-id').value             = p.id
   document.getElementById('det-codigo').textContent   = p.codigo || '—'
@@ -525,7 +521,7 @@ async function abrirDetalhesPedido(id) {
 
   const varHtml = Object.entries(itensPorProduto).map(([nomeProd, linhas]) => {
     const linhasHtml = linhas
-      .map(i => `<div style="margin-left:8px; margin-top:2px;">↳ <strong>${i.quantidade} un</strong> — ${i.variacao || '—'}</div>`)
+      .map(i => `<div style="margin-left:8px; margin-top:2px;">↳ <strong>${i.quantidade ?? '?'} un</strong> — ${i.variacao || '—'}</div>`)
       .join('')
     return `<div style="margin-bottom:6px;"><span style="font-weight:800; color:var(--cherry-dark);">🍒 ${nomeProd}</span>${linhasHtml}</div>`
   }).join('')
@@ -923,6 +919,9 @@ async function abrirModalEditarPedido(id) {
   const p = pedidosCarregados.find(x => x.id === id)
   if (!p) { toast('Pedido não encontrado', 'error'); return }
 
+  console.log('Dados do Pedido:', p)
+  console.log('Itens do Pedido:', p.itens_pedido)
+
   const [resClientes, resProdutos] = await Promise.all([
     sb.schema(S).from('clientes').select('id, nome').order('nome'),
     sb.schema(S).from('produtos')
@@ -972,26 +971,12 @@ async function abrirModalEditarPedido(id) {
   if (itens.length) {
     const grupos = {}
     itens.forEach(item => {
-      // Tenta resolver produto_id pelo nome se estiver nulo (registos antigos)
-      let prodId   = item.produto_id   || ''
-      let prodNome = item.produto_nome || ''
+      const prodId   = item.produto_id   || ''
+      const prodNome = item.produto_nome || ''
+      const chave    = prodId || prodNome || '__sem_produto__'
 
-      if (!prodId && prodNome) {
-        const encontrado = produtosCarregados.find(x =>
-          x.nome.trim().toLowerCase() === prodNome.trim().toLowerCase()
-        )
-        if (encontrado) prodId = encontrado.id
-      }
+      console.log('Item lido:', { prodId, prodNome, variacao: item.variacao, quantidade: item.quantidade })
 
-      // Último fallback: usa o campo `produto` do pedido pai
-      if (!prodId && !prodNome && p.produto) {
-        const encontrado = produtosCarregados.find(x =>
-          x.nome.trim().toLowerCase() === p.produto.trim().toLowerCase()
-        )
-        if (encontrado) { prodId = encontrado.id; prodNome = encontrado.nome }
-      }
-
-      const chave = prodId || prodNome || '__sem_produto__'
       if (!grupos[chave]) {
         grupos[chave] = { produto_id: prodId, produto_nome: prodNome, variacoes: [] }
       }
@@ -1000,7 +985,10 @@ async function abrirModalEditarPedido(id) {
         quantidade: item.quantidade,
       })
     })
-    Object.values(grupos).forEach(g => adicionarBlocoItem(g.produto_id, g.variacoes))
+    Object.values(grupos).forEach(g => {
+      console.log('Criando bloco:', g)
+      adicionarBlocoItem(g.produto_id, g.variacoes)
+    })
   } else {
     adicionarBlocoItem()
   }
