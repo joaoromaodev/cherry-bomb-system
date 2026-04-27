@@ -94,7 +94,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
 async function loadDashboard() {
   const periodo = document.getElementById('filtro-periodo')?.value || 'tudo'
 
-  const agora  = new Date()
+  const agora = new Date()
   let dataCorte = null
 
   if (periodo === 'mes') {
@@ -125,37 +125,38 @@ async function loadDashboard() {
   const entradasManuais = lancamentos.filter(l => l.tipo === 'entrada').reduce((s, l) => s + (parseFloat(l.valor) || 0), 0)
   const saidasManuais   = lancamentos.filter(l => l.tipo === 'saida').reduce((s, l)   => s + (parseFloat(l.valor) || 0), 0)
 
-  // Exclui pedidos em fase de negociação de todos os cálculos
-  const pedidos = todosPedidos.filter(p => p.status_pedido !== 'Aguardando confirmação')
-
-  // Contador separado para mostrar quantos estão aguardando
-  const aguardando = todosPedidos.filter(p => p.status_pedido === 'Aguardando confirmação').length
+  const pedidos    = todosPedidos.filter(p => p.status_pedido !== 'Aguardando confirmação')
+  const aguardando = todosPedidos.filter(p => p.status_pedido === 'Aguardando confirmação')
+  const aguardandoQtd = aguardando.length
+  const aguardandoVal = aguardando.reduce((s, p) => s + (parseFloat(p.total_final) || 0), 0)
 
   const total       = pedidos.length
   const faturamento = pedidos.reduce((s, p) => s + (p.total_final || 0), 0)
   const emProd      = pedidos.filter(p => p.status_pedido?.toLowerCase().includes('produção')).length
-  const pendentes   = pedidos.filter(p => p.status_pagamento === 'Pendente').length
   const entregues   = pedidos.filter(p => p.status_pedido === 'Entregue').length
 
-  // Receita REAL: soma dos valores já adiantados + pedidos pagos integralmente
+  // ── Alteração 1: rigor no "sem pagamento" ──────────────────────
+  const pendentes = pedidos.filter(p =>
+    p.status_pagamento === 'Aguardando Pagamento' &&
+    (p.valor_adiantado === 0 || p.valor_adiantado === null || p.valor_adiantado === undefined)
+  ).length
+
   const receitaRecebida = pedidos.reduce((s, p) => {
-    if (p.status_pagamento === 'Reembolsado')    return s
-    if (p.status_pagamento === 'Pago integral')  return s + (p.total_final || 0)
+    if (p.status_pagamento === 'Reembolsado')   return s
+    if (p.status_pagamento === 'Pago Integral') return s + (p.total_final || 0)
     return s + (parseFloat(p.valor_adiantado) || 0)
   }, 0)
 
-  // Expectativa: total − o que já foi pago
   const valorAReceber = pedidos.reduce((s, p) => {
-    if (p.status_pagamento === 'Pago integral') return s
+    if (p.status_pagamento === 'Pago Integral') return s
     if (p.status_pagamento === 'Reembolsado')   return s
     const adiantado = parseFloat(p.valor_adiantado) || 0
     return s + (p.total_final || 0) - adiantado
   }, 0)
 
-  // Pedidos com sinal: têm valor_adiantado > 0 mas ainda não pagaram tudo
   const comSinal = pedidos.filter(p =>
     (parseFloat(p.valor_adiantado) || 0) > 0 &&
-    p.status_pagamento !== 'Pago integral' &&
+    p.status_pagamento !== 'Pago Integral' &&
     p.status_pagamento !== 'Reembolsado'
   ).length
 
@@ -163,23 +164,26 @@ async function loadDashboard() {
   const lucro        = faturamento - custos
   const saldoEmCaixa = receitaRecebida - custos + entradasManuais - saidasManuais
 
-  // Totais monetários por grupo
-  const totalVal     = 0 // removido — duplica o Faturamento Bruto
   const prodVal      = pedidos.filter(p => p.status_pedido?.toLowerCase().includes('produção'))
                                .reduce((s, p) => s + (p.total_final || 0), 0)
   const entreguesVal = pedidos.filter(p => p.status_pedido === 'Entregue')
                                .reduce((s, p) => s + (p.total_final || 0), 0)
-  const pendVal      = pedidos.filter(p => p.status_pagamento === 'Pendente')
-                               .reduce((s, p) => s + (p.total_final || 0), 0)
+  const pendVal      = pedidos.filter(p =>
+                         p.status_pagamento === 'Aguardando Pagamento' &&
+                         (p.valor_adiantado === 0 || p.valor_adiantado === null || p.valor_adiantado === undefined)
+                       ).reduce((s, p) => s + (p.total_final || 0), 0)
   const sinalVal     = pedidos.filter(p =>
                          (parseFloat(p.valor_adiantado) || 0) > 0 &&
-                         p.status_pagamento !== 'Pago integral' &&
+                         p.status_pagamento !== 'Pago Integral' &&
                          p.status_pagamento !== 'Reembolsado'
                        ).reduce((s, p) => s + (parseFloat(p.valor_adiantado) || 0), 0)
 
   document.getElementById('stat-total').textContent         = total
-  document.getElementById('stat-aguardando').textContent    = aguardando
-  // stat-total-val removido
+  // ── Alteração 2: mostra qtd + valor retido nos orçamentos ──────
+  document.getElementById('stat-aguardando').textContent    =
+    aguardandoQtd > 0
+      ? `${aguardandoQtd} (${brl(aguardandoVal)})`
+      : '0'
   document.getElementById('stat-fat').textContent           = brl(faturamento)
   document.getElementById('stat-prod').textContent          = emProd
   document.getElementById('stat-prod-val').textContent      = brl(prodVal)
@@ -194,7 +198,6 @@ async function loadDashboard() {
   document.getElementById('stat-lucro').textContent         = brl(lucro)
   document.getElementById('stat-caixa').textContent         = brl(saldoEmCaixa)
 
-  // tabela de recentes removida no redesign — bloco limpo
   verificarGargalos(todosPedidos)
 }
 
@@ -203,7 +206,7 @@ function verificarGargalos(todosPedidos) {
   const secao = document.getElementById('dashboard-gargalos')
   if (!secao) return
 
-  const hoje    = new Date()
+  const hoje = new Date()
   hoje.setHours(0, 0, 0, 0)
 
   function diasDesde(dataStr) {
@@ -213,21 +216,23 @@ function verificarGargalos(todosPedidos) {
     return Math.floor((hoje - d) / (1000 * 60 * 60 * 24))
   }
 
-  // ── Alerta 1: Orçamentos parados (Aguardando confirmação > 3 dias)
+  // ── Alerta 1: Orçamentos parados > 3 dias ──────────────────────
   const orcamentosParados = todosPedidos.filter(p =>
     p.status_pedido === 'Aguardando confirmação' &&
     diasDesde(p.created_at) > 3
   )
+  const orcamentosVal = orcamentosParados.reduce((s, p) => s + (parseFloat(p.total_final) || 0), 0)
 
-  // ── Alerta 2: Pagamento pendente > 2 dias
+  // ── Alerta 2: Sem pagamento + sem adiantado > 2 dias ───────────
   const pagamentosPendentes = todosPedidos.filter(p =>
-    p.status_pagamento === 'Pendente' &&
+    p.status_pagamento === 'Aguardando Pagamento' &&
+    (p.valor_adiantado === 0 || p.valor_adiantado === null || p.valor_adiantado === undefined) &&
     p.status_pedido !== 'Aguardando confirmação' &&
     p.status_pedido !== 'Cancelado' &&
     diasDesde(p.created_at) > 2
   )
 
-  // ── Alerta 3: Prazo de produção estourado (data_previsao < hoje)
+  // ── Alerta 3: Prazo de produção estourado ──────────────────────
   const atrasosProducao = todosPedidos.filter(p => {
     if (!p.data_previsao) return false
     if (!['Em produção', 'Pronto para envio'].includes(p.status_pedido)) return false
@@ -243,7 +248,7 @@ function verificarGargalos(todosPedidos) {
     alertas.push({
       tipo:   'vermelho',
       icone:  '🔴',
-      titulo: `${orcamentosParados.length} orçamento${plural ? 's' : ''} parado${plural ? 's'  : ''}`,
+      titulo: `${orcamentosParados.length} orçamento${plural ? 's' : ''} parado${plural ? 's' : ''} — ${brl(orcamentosVal)} retidos`,
       desc:   `${plural ? 'Pedidos estão' : 'Pedido está'} em "Aguardando confirmação" há mais de 3 dias. Hora de chamar as clientes!`,
       qtd:    orcamentosParados.length,
     })
@@ -255,7 +260,7 @@ function verificarGargalos(todosPedidos) {
       tipo:   'amarelo',
       icone:  '🟡',
       titulo: `${pagamentosPendentes.length} pagamento${plural ? 's' : ''} pendente${plural ? 's' : ''}`,
-      desc:   `${plural ? 'Pedidos confirmados estão' : 'Pedido confirmado está'} sem pagamento há mais de 2 dias.`,
+      desc:   `${plural ? 'Pedidos confirmados estão' : 'Pedido confirmado está'} sem nenhum pagamento há mais de 2 dias.`,
       qtd:    pagamentosPendentes.length,
     })
   }
