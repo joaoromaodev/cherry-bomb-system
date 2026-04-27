@@ -1388,52 +1388,7 @@ async function salvarPedido(e) {
   const todosBlocos = Array.from(document.querySelectorAll('#container-itens-pedido .bloco-item'))
   const todosItens  = []
 
-  todosBlocos.forEach(bloco => {
-    const produtoId   = bloco.dataset.produtoId   || null
-    const produtoNome = bloco.dataset.produtoNome || ''
-    bloco.querySelectorAll('.var-row').forEach(row => {
-      const variacao   = row.querySelector('.var-nome')?.value?.trim() || ''
-      const quantidade = parseInt(row.querySelector('.var-qtd')?.value) || 0
-      if (variacao && quantidade > 0)
-        todosItens.push({ produto_id: produtoId, produto_nome: produtoNome, variacao, quantidade })
-    })
-  })
-
-  if (!todosItens.length) {
-    toast('Adicione pelo menos um produto com variação e quantidade', 'error')
-    return
-  }
-
-  // ── Calcula subtotal por bloco (cada produto usa sua própria faixa) ──
-  let grandSubtotal = 0
-  let hasError      = false
-
-  for (const bloco of todosBlocos) {
-    const produtoId = bloco.dataset.produtoId
-    const prod      = produtosCarregados.find(x => x.id === produtoId) || null
-    const precos    = (prod?.produto_precos || []).sort((a, b) => a.qtd_minima - b.qtd_minima)
-
-    const blocoQtd = Array.from(bloco.querySelectorAll('.var-row'))
-      .reduce((s, row) => s + (parseInt(row.querySelector('.var-qtd')?.value) || 0), 0)
-
-    if (blocoQtd === 0) continue
-
-    if (!produtoId) { toast('Selecione um produto em cada bloco', 'error'); hasError = true; break }
-
-    if (precos.length > 0) {
-      const minQtd     = Math.min(...precos.map(p => p.qtd_minima))
-      if (blocoQtd < minQtd) {
-        toast(`Quantidade mínima para "${bloco.dataset.produtoNome}" é ${minQtd} un`, 'error')
-        hasError = true
-        break
-      }
-      const aplicaveis = precos.filter(p => blocoQtd >= p.qtd_minima)
-      if (aplicaveis.length) {
-        const preco = parseFloat(aplicaveis.reduce((best, p) => p.qtd_minima > best.qtd_minima ? p : best).preco_unitario)
-        grandSubtotal += blocoQtd * preco
-      }
-    }
-  }
+  
 
   if (hasError) return
 
