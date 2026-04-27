@@ -1516,7 +1516,6 @@ async function salvarPedido(e) {
   fecharModal('modal-pedido')
   loadPedidos()
   loadDashboard()
-}
 
 // ── Pedido — exclusão ─────────────────────────────────────────────
 function abrirModalExcluirPedido(id) {
