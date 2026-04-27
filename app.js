@@ -1076,13 +1076,19 @@ async function salvarPedido(e) {
     const { error } = await sb.schema(S).from('pedidos').update(payloadEdicao).eq('id', editId)
     if (error) { toast('Erro ao atualizar: ' + error.message, 'error'); return }
 
-    await sb.rpc('atualizar_pedido_extra', {
-      p_id:              editId,
-      p_valor_adiantado: valorAdiantado,
-      p_produto_id:      produtoId,
-      p_data_previsao:   null,
-      p_codigo_rastreio: null,
-    })
+    // Calcula status de pagamento baseado no valor adiantado
+    const pedidoAtual = pedidosCarregados.find(x => x.id === editId)
+    const vTotal      = parseFloat(total)          || 0
+    const vPago       = parseFloat(valorAdiantado) || 0
+    let   statusPagto = 'Aguardando Pagamento'
+    if (vTotal > 0 && vPago >= vTotal)      statusPagto = 'Pago Integral'
+    else if (vPago > 0 && vPago < vTotal)   statusPagto = 'Pago Parcialmente'
+
+    await sb.schema(S).from('pedidos').update({
+      valor_adiantado:  vPago,
+      produto_id:       produtoId,
+      status_pagamento: statusPagto,
+    }).eq('id', editId)
 
     await sb.schema(S).from('itens_pedido').delete().eq('pedido_id', editId)
     if (variacoes.length)
