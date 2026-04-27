@@ -1375,7 +1375,14 @@ async function salvarPedido(e) {
     .delete().eq('pedido_id', pedidoId)
   if (errDel) console.error('Erro ao deletar itens:', errDel)
 
-  const arrayItens = todosItens.map(i => ({ ...i, pedido_id: pedidoId }))
+  const arrayItens = todosItens.map(i => ({
+    pedido_id:    pedidoId,
+    variacao:     i.variacao,
+    quantidade:   i.quantidade,
+    produto_id:   i.produto_id   || null,
+    produto_nome: i.produto_nome || null,
+  }))
+
   const { error: errItens } = await sb.schema(S).from('itens_pedido').insert(arrayItens)
   if (errItens) console.error('Erro Itens:', errItens)
 
