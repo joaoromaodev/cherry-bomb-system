@@ -1258,7 +1258,7 @@ async function salvarPedido(e) {
     return
   }
 
-  // ── Calcula subtotal por bloco ─────────────────────────────────
+  // ── Calcula subtotal por bloco ────────────────────────────────
   let grandSubtotal = 0
   let hasError      = false
 
@@ -1280,16 +1280,16 @@ async function salvarPedido(e) {
     }
 
     if (precos.length > 0) {
-      const minQtd = Math.min(...precos.map(p => p.qtd_minima))
+      const minQtd = Math.min(...precos.map(pr => pr.qtd_minima))
       if (blocoQtd < minQtd) {
         const nomeProd = selectProd.options[selectProd.selectedIndex]?.text || produtoId
         toast(`Quantidade mínima para "${nomeProd}" é ${minQtd} un`, 'error')
         hasError = true
         break
       }
-      const aplicaveis = precos.filter(p => blocoQtd >= p.qtd_minima)
+      const aplicaveis = precos.filter(pr => blocoQtd >= pr.qtd_minima)
       if (aplicaveis.length) {
-        const melhor = aplicaveis.reduce((best, p) => p.qtd_minima > best.qtd_minima ? p : best)
+        const melhor = aplicaveis.reduce((best, pr) => pr.qtd_minima > best.qtd_minima ? pr : best)
         grandSubtotal += blocoQtd * parseFloat(melhor.preco_unitario)
       }
     }
@@ -1305,6 +1305,7 @@ async function salvarPedido(e) {
 
   const vPago  = parseFloat(valorAdiantado) || 0
   const vTotal = parseFloat(total)          || 0
+
   let statusPagto = 'Aguardando Pagamento'
   if (vTotal > 0 && vPago >= vTotal)    statusPagto = 'Pago Integral'
   else if (vPago > 0 && vPago < vTotal) statusPagto = 'Pago Parcialmente'
@@ -1329,7 +1330,12 @@ async function salvarPedido(e) {
 
     const { error } = await sb.schema(S).from('pedidos')
       .update(payloadEdicao).eq('id', editId)
-    if (error) { console.error('Erro pedido:', error); toast('Erro ao atualizar: ' + error.message, 'error'); return }
+
+    if (error) {
+      console.error('Erro pedido:', error)
+      toast('Erro ao atualizar: ' + error.message, 'error')
+      return
+    }
 
     toast('Pedido atualizado com sucesso!')
 
@@ -1353,13 +1359,18 @@ async function salvarPedido(e) {
 
     const { data, error } = await sb.schema(S).from('pedidos')
       .insert(payloadInsert).select()
-    if (error) { console.error('Erro pedido:', error); toast('Erro ao salvar: ' + error.message, 'error'); return }
+
+    if (error) {
+      console.error('Erro pedido:', error)
+      toast('Erro ao salvar: ' + error.message, 'error')
+      return
+    }
 
     pedidoId = data[0].id
-    toast(`Pedido criado!`)
+    toast('Pedido criado!')
   }
 
-  // ── Delete itens antigos e insere os novos ────────────────────
+  // ── Deleta itens antigos e insere os novos ────────────────────
   const { error: errDel } = await sb.schema(S).from('itens_pedido')
     .delete().eq('pedido_id', pedidoId)
   if (errDel) console.error('Erro ao deletar itens:', errDel)
