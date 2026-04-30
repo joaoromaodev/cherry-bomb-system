@@ -17,9 +17,11 @@ function brl(val) {
 
 function fmtData(d) {
   if (!d) return '—'
-  const data = new Date(d);
-  if (isNaN(data.getTime())) return '—'; 
-  return data.toLocaleDateString('pt-BR');
+  // Força meio-dia para evitar recuo de timezone (UTC-3 vs UTC midnight)
+  const str  = typeof d === 'string' ? d.split('T')[0] : new Date(d).toISOString().split('T')[0]
+  const data = new Date(str + 'T12:00:00')
+  if (isNaN(data.getTime())) return '—'
+  return data.toLocaleDateString('pt-BR')
 }
 
 function calcPreco(qtd) {
